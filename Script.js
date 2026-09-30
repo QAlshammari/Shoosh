@@ -996,7 +996,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
 
 
 function setExportBusy(busy){
-  ['pdfBtn','imageBtn'].forEach(id=>{if($(id)) $(id).disabled=busy});
+  ['pdfBtn'].forEach(id=>{if($(id)) $(id).disabled=busy});
 }
 
 function isIOSDevice(){
@@ -1537,7 +1537,7 @@ $('manualPdf').addEventListener('click',()=>{if(applyManualTrades(true)) exportP
 $('manualImage').addEventListener('click',()=>{if(applyManualTrades(true)) openTopTradesPreview()});
 $('manualExcel').addEventListener('click',exportManualTradesToExcel);
 $('pdfBtn').addEventListener('click',exportPdf);
-$('imageBtn').addEventListener('click',openTopTradesPreview);
+
 $('previewClose')?.addEventListener('click',hidePreview);
 $('previewDownload')?.addEventListener('click',saveOrShareTopTrades);
 $('previewModal')?.addEventListener('click',e=>{ if(e.target.id==='previewModal') hidePreview(); });
