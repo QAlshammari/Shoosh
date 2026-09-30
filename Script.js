@@ -253,12 +253,27 @@ function saveImportedTradesToSelectedWeek(importedTrades){
   const rangeKey=selectedWeekKey();
   const ranges=readExcelRanges();
 
-  // مهم: لا نحذف أي صفقة محفوظة مسبقاً.
-  // الملف الجديد يُضاف إلى الصفقات الموجودة، والصفقات المتطابقة فقط
-  // تُمنع من التكرار بواسطة mergeTradesWithoutDuplicates.
-  const existing=Array.isArray(ranges[rangeKey]) ? ranges[rangeKey] : [];
-  ranges[rangeKey]=mergeTradesWithoutDuplicates(existing,Array.isArray(importedTrades)?importedTrades:[]);
+  const selectedFrom=$('fromDate')?.value || currentWeekRange().from;
+  const selectedTo=$('toDate')?.value || currentWeekRange().to;
 
+  // استبدال كامل: امسح كل صفقات Excel القديمة التابعة للأسبوع المحدد
+  // من جميع مفاتيح التخزين القديمة، ثم اعتمد الملف الجديد وحده.
+  Object.keys(ranges).forEach(key=>{
+    const list=Array.isArray(ranges[key])?ranges[key]:[];
+    const kept=list.filter(trade=>{
+      const tradeDate=parseDate(trade?.date);
+      if(/^\d{4}-\d{2}-\d{2}$/.test(tradeDate)){
+        return tradeDate<selectedFrom || tradeDate>selectedTo;
+      }
+      // الصفوف القديمة بلا تاريخ تُحذف إذا كانت محفوظة تحت نفس الأسبوع.
+      return key!==rangeKey;
+    });
+    if(kept.length) ranges[key]=kept;
+    else delete ranges[key];
+  });
+
+  // لا دمج مع النسخة القديمة إطلاقاً؛ الملف الحالي هو النسخة النهائية للأسبوع.
+  ranges[rangeKey]=mergeTradesWithoutDuplicates([],importedTrades);
   writeExcelRanges(ranges);
   return ranges[rangeKey];
 }
@@ -996,7 +1011,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
 
 
 function setExportBusy(busy){
-  ['pdfBtn'].forEach(id=>{if($(id)) $(id).disabled=busy});
+  ['pdfBtn','imageBtn'].forEach(id=>{if($(id)) $(id).disabled=busy});
 }
 
 function isIOSDevice(){
@@ -1255,11 +1270,43 @@ async function saveOrShareTopTrades(e){
     }
 
     const captureWidth=REPORT_WIDTH;
-    const captureHeight=Math.ceil(Math.max(target.scrollHeight,target.getBoundingClientRect().height));
-    // دقة أعلى للصورة النهائية لتبقى الكتابة واضحة بعد ضغط تطبيقات المراسلة.
-    // نستخدم 3x عادة، مع تخفيض تلقائي فقط للتقارير الطويلة حمايةً لذاكرة Safari.
-    const maxCanvasPixels=32_000_000;
-    const scale=Math.max(2.25,Math.min(3,Math.sqrt(maxCanvasPixels/(captureWidth*captureHeight))));
+    const captureHeight=Math.ceil(Math.max(
+      target.scrollHeight,
+      target.offsetHeight,
+      target.getBoundingClientRect().height
+    ));
+
+    // إصلاح قص الصفقات في تقارير 4 أسابيع على Safari / iPhone.
+    // المشكلة كانت أن الحد الأدنى 2.25x قد يجعل ارتفاع الـCanvas
+    // أكبر من الحد الذي يستطيع Safari إنشاءه، فيُقص الجزء السفلي من التقرير.
+    // نختار أعلى دقة ممكنة مع مراعاة عدد البكسلات والبعد الأقصى للـCanvas.
+    const MAX_CANVAS_PIXELS = 24_000_000;
+    const MAX_CANVAS_DIMENSION = 15_500;
+    const MIN_EXPORT_SCALE = 1.25;
+    const MAX_EXPORT_SCALE = 3;
+
+    const pixelScale = Math.sqrt(
+      MAX_CANVAS_PIXELS / (captureWidth * captureHeight)
+    );
+    const dimensionScale =
+      MAX_CANVAS_DIMENSION / Math.max(captureWidth, captureHeight);
+
+    const scale = Math.max(
+      MIN_EXPORT_SCALE,
+      Math.min(MAX_EXPORT_SCALE, pixelScale, dimensionScale)
+    );
+
+    const outputWidth = Math.ceil(captureWidth * scale);
+    const outputHeight = Math.ceil(captureHeight * scale);
+
+    console.info('Q Options image export', {
+      captureWidth,
+      captureHeight,
+      scale,
+      outputWidth,
+      outputHeight
+    });
+
     const canvas=await html2canvas(target,{
       scale,
       width:captureWidth,
@@ -1537,7 +1584,7 @@ $('manualPdf').addEventListener('click',()=>{if(applyManualTrades(true)) exportP
 $('manualImage').addEventListener('click',()=>{if(applyManualTrades(true)) openTopTradesPreview()});
 $('manualExcel').addEventListener('click',exportManualTradesToExcel);
 $('pdfBtn').addEventListener('click',exportPdf);
-
+$('imageBtn').addEventListener('click',openTopTradesPreview);
 $('previewClose')?.addEventListener('click',hidePreview);
 $('previewDownload')?.addEventListener('click',saveOrShareTopTrades);
 $('previewModal')?.addEventListener('click',e=>{ if(e.target.id==='previewModal') hidePreview(); });
