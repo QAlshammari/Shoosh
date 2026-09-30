@@ -1,0 +1,2 @@
+const undoButton=document.createElement('button');undoButton.id='subscribersUndo';undoButton.className='undo-btn';undoButton.type='button';undoButton.disabled=true;undoButton.textContent='↶ تراجع';$('extendToggle').insertAdjacentElement('afterend',undoButton);undoButton.addEventListener('click',undoSubscribersState);
+$('subscriberExcelFile')?.addEventListener('change',e=>{if(e.target.files?.length)rememberSubscribersState()},{capture:true});

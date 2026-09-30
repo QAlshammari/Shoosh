@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#fcf8f1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Q Options Tracker - Weekly Dashboard</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="Style.css?v=REPORT-9">
+  <link rel="stylesheet" href="Home-actions-layout.css?v=1">
+</head>
+<body data-qoptions-build="FIXED-MOBILE-COLOR-CAPTURE">
+  <div class="page-glow glow-one"></div>
+  <div class="page-glow glow-two"></div>
+
+  <div class="app-shell" id="reportArea">
+    <!-- ========================= HEADER ========================= -->
+    <header class="hero-header">
+      <div class="hero-brand">
+        <img src="QQ.PNG" alt="Q Options Logo" class="hero-logo" id="mainLogo">
+      </div>
+
+      <div class="title-block">
+        <div class="eyebrow">PERFORMANCE DASHBOARD</div>
+        <h1>WEEKLY REPORT</h1>
+        <h2>التقرير الأسبوعي</h2>
+
+        <div class="date-range" title="يتم ضبطه تلقائياً على الأسبوع الحالي ويمكن تغييره يدوياً">
+          <span class="date-icon">◷</span>
+          <div class="date-field">
+            <small>من</small>
+            <input id="fromDate" type="date" aria-label="من تاريخ">
+          </div>
+          <span class="arrow">←</span>
+          <div class="date-field">
+            <small>إلى</small>
+            <input id="toDate" type="date" aria-label="إلى تاريخ">
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ========================= ACTIONS ========================= -->
+    <section class="actions-wrap no-print">
+      <div class="toolbar">
+        <label class="action-btn action-primary upload-btn" for="excelFile">
+          <input id="excelFile" type="file" accept=".xlsx,.xls,.csv" hidden>
+          <span class="action-icon">▦</span>
+          <span class="action-text"><b>إدخال الصفقات من Excel</b><small>Excel / CSV</small></span>
+        </label>
+
+        <button id="demoBtn" class="action-btn" type="button">
+          <span class="action-icon">＋</span>
+          <span class="action-text"><b>إدخال الصفقات يدويًا</b><small>إدخال يدوي</small></span>
+        </button>
+
+        <button id="pdfBtn" class="action-btn action-dark" type="button" hidden>
+          <span class="action-icon">PDF</span>
+          <span class="action-text"><b>تصدير تقرير PDF</b><small>نسخة احترافية جاهزة</small></span>
+        </button>
+
+        <button id="imageBtn" class="action-btn action-image public-action" type="button" aria-label="إصدار التقرير وحفظه">
+          <span class="action-icon">▧</span>
+          <span class="action-text"><b>إصدار التقرير وحفظه</b><small>عرض / تصدير للجمهور</small></span>
+        </button>
+
+        <button class="action-btn action-subscribers" type="button" onclick="window.location.href='subscribers.html'">
+          <span class="action-icon">♙</span>
+          <span class="action-text"><b>إدارة المشتركين</b><small>المشتركون والتجديدات</small></span>
+        </button>
+      </div>
+
+      <div class="toolbar-hint">
+        <span class="hint-dot"></span>
+        يدعم Excel وCSV ويتم تحديث جميع المؤشرات والرسوم تلقائياً
+      </div>
+    </section>
+
+    <main>
+      <!-- ========================= STATS ========================= -->
+      <section class="stats-grid">
+        <article class="stat-card">
+          <div class="icon gold-soft">⌁</div>
+          <div class="stat-copy"><span>إجمالي الصفقات</span><strong id="totalTrades" class="digital-main">0</strong><small>Total Trades</small></div>
+        </article>
+
+        <article class="stat-card">
+          <div class="icon green">$</div>
+          <div class="stat-copy"><span>إجمالي الربح</span><strong id="totalProfit" class="digital-main">$0.00</strong><small>Total Profit</small></div>
+        </article>
+
+        <article class="stat-card">
+          <div class="icon bronze">%</div>
+          <div class="stat-copy"><span>نسبة العائد</span><strong id="returnPct" class="digital-main">0%</strong><small>Return %</small></div>
+        </article>
+
+        <article class="stat-card featured-stat">
+          <div class="icon gold">★</div>
+          <div class="stat-copy"><span>نسبة النجاح</span><strong id="winRate" class="digital-main">0%</strong><small>Win Rate</small></div>
+        </article>
+
+        <article class="stat-card status-win-card">
+          <div class="icon green">✓</div>
+          <div class="stat-copy"><span>صفقات ناجحة</span><strong id="wins" class="digital-main">0</strong><small>Wins</small></div>
+        </article>
+
+        <article class="stat-card status-stopped-card">
+          <div class="icon cyan">Ⅱ</div>
+          <div class="stat-copy"><span>صفقات موقوفة</span><strong id="stopped" class="digital-main">0</strong><small>Stopped</small></div>
+        </article>
+
+        <article class="stat-card status-loss-card">
+          <div class="icon red">✕</div>
+          <div class="stat-copy"><span>صفقات خاسرة</span><strong id="losses" class="digital-main">0</strong><small>Losses</small></div>
+        </article>
+      </section>
+
+      <!-- ========================= CHARTS ========================= -->
+      <section class="charts-grid">
+        <article class="panel chart-panel">
+          <div class="panel-title">
+            <div><span class="section-kicker">PERFORMANCE</span><h3>منحنى الأداء التراكمي <span>(Equity Curve)</span></h3></div>
+            <span class="pill digital-main" id="equityFinal">$0.00</span>
+          </div>
+          <div class="canvas-wrap"><canvas id="equityChart"></canvas></div>
+        </article>
+
+        <article class="panel chart-panel">
+          <div class="panel-title"><div><span class="section-kicker">DAILY RESULTS</span><h3>الأداء اليومي</h3></div></div>
+          <div class="canvas-wrap"><canvas id="dailyChart"></canvas></div>
+        </article>
+
+        <article class="panel chart-panel">
+          <div class="panel-title"><div><span class="section-kicker">WIN / LOSS</span><h3>توزيع الربح / الخسارة</h3></div></div>
+          <div class="canvas-wrap donut-wrap"><canvas id="winLossChart"></canvas></div>
+        </article>
+      </section>
+
+      <!-- ========================= DETAILS ========================= -->
+      <section class="details-grid">
+        <article class="panel best-card">
+          <h3>أفضل صفقة</h3>
+          <div class="medal-ring"><div class="medal">★</div></div>
+          <strong id="bestSymbol">—</strong>
+          <div class="big-profit digital-main" id="bestProfit">$0.00</div>
+          <div class="big-percent digital-main" id="bestPct">0%</div>
+        </article>
+
+        <article class="panel metrics-panel">
+          <div class="detail-title"><span class="section-kicker">METRICS</span><h3>مؤشرات الأداء</h3></div>
+          <div class="metric-row"><span>متوسط الربح للصفقة</span><b id="avgWin">$0.00</b></div>
+          <div class="metric-row"><span>متوسط الخسارة للصفقة</span><b id="avgLoss">$0.00</b></div>
+          <div class="metric-row"><span>Profit Factor</span><b id="profitFactor">0.00</b></div>
+          <div class="metric-row"><span>Expectancy</span><b id="expectancy">$0.00</b></div>
+          <div class="metric-row"><span>Max Drawdown</span><b id="maxDrawdown">$0.00</b></div>
+          <div class="metric-row"><span>Sharpe Ratio</span><b id="sharpe">0.00</b></div>
+        </article>
+
+        <article class="panel summary-panel">
+          <div class="detail-title"><span class="section-kicker">WEEKLY SUMMARY</span><h3>ملخص الأسبوع</h3></div>
+          <div class="metric-row"><span>إجمالي الربح</span><b id="summaryGross">$0.00</b></div>
+          <div class="metric-row"><span>إجمالي الخسارة</span><b id="summaryLoss">$0.00</b></div>
+          <div class="metric-row"><span>صافي الربح</span><b id="summaryNet">$0.00</b></div>
+          <div class="metric-row"><span>أعلى ربح يومي</span><b id="bestDay">$0.00</b></div>
+          <div class="metric-row"><span>أعلى خسارة يومية</span><b id="worstDay">$0.00</b></div>
+        </article>
+      </section>
+
+      <!-- ========================= TRADES TABLE ========================= -->
+      <section class="panel trades-panel">
+        <div class="panel-title table-heading">
+          <div><span class="section-kicker">TRADES</span><h3>صفقات هذا الأسبوع</h3></div>
+          <span class="rows-badge" id="rowsCount">0 صفقة</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>اسم الشركة</th><th>الاسترايك</th><th>سعر الشراء</th><th>سعر البيع</th><th>الربح</th><th>النسبة</th><th>الملاحظات</th>
+              </tr>
+            </thead>
+            <tbody id="tradesBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- التواصل أصبح نصاً بسيطاً أسفل الصفحة -->
+    <footer>
+      <div class="footer-brand">Q OPTIONS TRACKER</div>
+      <div class="footer-contact">للتواصل عبر تليجرام <b dir="ltr">@Qalshammari</b></div>
+      <div id="footerDate"></div>
+    </footer>
+  </div>
+
+  <div id="manualEntryPage" class="manual-entry-page no-print" hidden>
+    <div class="manual-entry-shell">
+      <header class="manual-entry-head">
+        <button type="button" id="manualClose" class="manual-close" aria-label="العودة">×</button>
+        <img src="QQ.PNG" alt="Q Options" class="manual-logo">
+        <h2>إدخال الصفقات</h2>
+        <div id="manualWeekRange" class="manual-week-range"></div>
+      </header>
+
+      <form id="manualTradeForm" class="manual-trade-form">
+        <label class="manual-field manual-wide"><span>اسم الشركة</span><input id="manualSymbol" type="text" placeholder="مثال: TSLA" required autocomplete="off"></label>
+        <label class="manual-field manual-wide"><span>الأوبشن</span><select id="manualOption" required><option value="">اختر</option><option value="CALL">Call</option><option value="PUT">Put</option></select></label>
+        <label class="manual-field manual-wide"><span>السترايك</span><input id="manualStrike" type="number" inputmode="decimal" step="any" placeholder="مثال: 300" required></label>
+        <div class="manual-pair manual-wide">
+          <label class="manual-field"><span>سعر الدخول</span><input id="manualBuy" type="number" inputmode="decimal" step="any" min="0" placeholder="سعر الدخول" required></label>
+          <label class="manual-field"><span>سعر الخروج</span><input id="manualSell" type="number" inputmode="decimal" step="any" min="0" placeholder="سعر الخروج" required></label>
+        </div>
+        <label class="manual-field manual-wide"><span>ملاحظات</span><input id="manualNotes" type="text" placeholder="ملاحظة قصيرة" autocomplete="off"></label>
+        <button id="manualSubmit" class="manual-add" type="submit">إضافة الصفقة</button>
+        <button id="manualCancelEdit" class="manual-cancel-edit" type="button" hidden>إلغاء التعديل</button>
+      </form>
+
+      <section class="manual-list-card">
+        <div class="manual-list-title"><h3>صفقات هذا الأسبوع</h3><span id="manualCount">0 صفقة</span></div>
+        <div class="manual-table-scroll">
+          <table><thead><tr><th>الشركة</th><th>الأوبشن</th><th>السترايك</th><th>الدخول</th><th>الخروج</th><th>الربح</th><th>النسبة</th><th>الحالة</th><th>الملاحظات</th><th></th></tr></thead><tbody id="manualTradesBody"></tbody></table>
+        </div>
+        <div id="manualEmpty" class="manual-empty">لم تتم إضافة صفقات بعد</div>
+      </section>
+
+      <div class="manual-report-actions">
+        <button id="manualApply" type="button">عرض التقرير</button>
+        <button id="manualPdf" type="button">إصدار تقرير PDF</button>
+        <button id="manualImage" type="button">حفظ صورة</button>
+      </div>
+      <button id="manualExcel" class="manual-excel-save" type="button"><span aria-hidden="true">📊</span> حفظ الصفقات في ملف Excel</button>
+    </div>
+  </div>
+
+  <div id="previewModal" class="preview-modal no-print" hidden>
+    <div class="preview-dialog">
+      <button type="button" class="preview-close" id="previewClose" aria-label="إغلاق">×</button>
+      <div class="preview-body" id="previewBody">
+        <div id="previewContent" class="preview-live-content"></div>
+      </div>
+      <div class="preview-actions">
+        <button id="previewDownload" class="preview-download" type="button">حفظ الصورة</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- منطقة تصدير مخفية يتم بناؤها بالجافاسكربت -->
+  <div id="exportStage" class="export-stage" aria-hidden="true"></div>
+  <div id="toast" class="toast no-print" role="status"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-database-compat.js"></script>
+  <script src="Script.js?v=REPORT-7"></script>
+</body>
+</html>

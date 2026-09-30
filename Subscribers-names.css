@@ -1,0 +1,42 @@
+/* إبراز أسماء المشتركين مع الحفاظ على الخط واللون */
+.subscribers-table .member strong,.member strong{font-size:14px!important;font-weight:900!important;line-height:1.35!important;letter-spacing:.15px!important;color:inherit!important;text-shadow:0 .3px 0 currentColor}.member small{margin-top:2px}@media(max-width:600px){.subscribers-table .member strong,.member strong{font-size:13px!important;font-weight:900!important}}
+.form-actions #subscriberConfirm.subscriber-confirm{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-width:112px!important;
+  height:42px!important;
+  padding:0 22px!important;
+  border:1px solid #8d6325!important;
+  border-radius:10px!important;
+  background:linear-gradient(145deg,#c79b4c,#79551d)!important;
+  color:#fff!important;
+  font-family:Cairo,Arial,sans-serif!important;
+  font-size:13px!important;
+  font-weight:900!important;
+  line-height:1!important;
+  text-indent:0!important;
+  opacity:1!important;
+  visibility:visible!important;
+  box-shadow:0 6px 13px rgba(118,83,29,.28)!important;
+}
+.form-actions #cancel{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-width:112px!important;
+  height:42px!important;
+  padding:0 22px!important;
+  border:1px solid #c8a66b!important;
+  border-radius:10px!important;
+  background:linear-gradient(145deg,#fffdf7,#ead8b6)!important;
+  color:#6f4d1e!important;
+  font-family:Cairo,Arial,sans-serif!important;
+  font-size:13px!important;
+  font-weight:900!important;
+  line-height:1!important;
+  text-indent:0!important;
+  opacity:1!important;
+  visibility:visible!important;
+  box-shadow:0 6px 13px rgba(118,83,29,.16)!important;
+}

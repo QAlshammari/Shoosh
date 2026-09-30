@@ -1,0 +1,4 @@
+/* إخفاء PDF من الرئيسية مع إبقاء الوظيفة الداخلية آمنة */
+.actions-wrap #pdfBtn{display:none!important}.actions-wrap .toolbar{grid-template-columns:repeat(4,minmax(0,1fr))!important;max-width:1160px!important}
+/* أربعة أزرار مرتبة 2 × 2 على الجوال */
+@media(max-width:720px){.actions-wrap .toolbar{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important}.actions-wrap .toolbar>.action-btn{grid-column:auto!important;width:100%!important;min-width:0!important}.actions-wrap .action-text b{font-size:10px!important}.actions-wrap .action-text small{font-size:7px!important}}
