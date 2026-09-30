@@ -76,30 +76,6 @@ function applyCloudStores(data){
   render();
 }
 
-function mergeCloudState(remote){
-  const localManual=readManualWeeks();
-  const localExcel=readExcelRanges();
-  return {
-    initialized:true,
-    // لا نستبدل التخزين المحلي بنسخة سحابية أقدم أو ناقصة.
-    manualWeeks:mergeStoredRanges(remote?.manualWeeks,localManual),
-    excelRanges:mergeStoredRanges(remote?.excelRanges,localExcel),
-    updatedAt:Date.now()
-  };
-}
-
-function cloudStateData(state){
-  return {
-    initialized:true,
-    manualWeeks:state?.manualWeeks||{},
-    excelRanges:state?.excelRanges||{}
-  };
-}
-
-function sameCloudData(a,b){
-  return JSON.stringify(cloudStateData(a))===JSON.stringify(cloudStateData(b));
-}
-
 async function initSharedCloud(){
   try{
     if(!window.firebase) throw new Error('Firebase SDK unavailable');
@@ -107,34 +83,25 @@ async function initSharedCloud(){
     cloudRootRef=firebase.database().ref(CLOUD_ROOT_PATH);
     const firstSnapshot=await cloudRootRef.once('value');
     const remote=firstSnapshot.val()||{};
-
-    // دائماً ادمج المحلي مع السحابي عند بدء التشغيل؛ لا تسمح لنسخة
-    // سحابية ناقصة بأن تمسح صفقات موجودة على هذا الجهاز.
-    const initialState=mergeCloudState(remote);
+    // أول جهاز فقط ينقل التخزين المحلي القديم إلى السحابة. بعد تهيئة
+    // القاعدة تصبح السحابة هي المرجع، حتى لا يعيد جهاز قديم صفقات محذوفة.
+    const initialState=remote.initialized ? remote : {
+      initialized:true,
+      manualWeeks:mergeStoredRanges(remote.manualWeeks,readManualWeeks()),
+      excelRanges:mergeStoredRanges(remote.excelRanges,readExcelRanges()),
+      updatedAt:Date.now()
+    };
     applyCloudStores(initialState);
-    if(!sameCloudData(remote,initialState)) await cloudRootRef.set(initialState);
-
+    if(!remote.initialized) await cloudRootRef.set(initialState);
     cloudReady=true;
     cloudRootRef.on('value',snapshot=>{
       const data=snapshot.val();
-      if(!data) return;
-
-      // عند وصول تحديث من جهاز آخر ندمج الصفقات بدلاً من استبدال
-      // التخزين المحلي بالكامل. وإذا كان الدمج أضاف بيانات، نرفع النسخة
-      // المدمجة للسحابة حتى تصبح هي النسخة المشتركة لجميع الأجهزة.
-      const merged=mergeCloudState(data);
-      applyCloudStores(merged);
-      if(!sameCloudData(data,merged)){
-        cloudRootRef.set(merged).catch(err=>{
-          console.error('Firebase merge save failed',err);
-          showToast('تعذر حفظ الصفقات المدمجة؛ تحقق من الاتصال');
-        });
-      }
+      if(data) applyCloudStores(data);
     },err=>{
       console.error('Firebase listen failed',err);
       showToast('المزامنة السحابية غير متاحة');
     });
-    showToast('تمت مزامنة الصفقات بدون حذف البيانات المحلية');
+    showToast('تمت مزامنة الصفقات بين جميع الأجهزة');
   }catch(err){
     console.error('Firebase initialization failed',err);
     showToast('تعذر الاتصال بقاعدة الصفقات المشتركة');
@@ -286,15 +253,12 @@ function saveImportedTradesToSelectedWeek(importedTrades){
   const rangeKey=selectedWeekKey();
   const ranges=readExcelRanges();
 
-  const selectedFrom=$('fromDate')?.value || currentWeekRange().from;
-  const selectedTo=$('toDate')?.value || currentWeekRange().to;
+  // مهم: لا نحذف أي صفقة محفوظة مسبقاً.
+  // الملف الجديد يُضاف إلى الصفقات الموجودة، والصفقات المتطابقة فقط
+  // تُمنع من التكرار بواسطة mergeTradesWithoutDuplicates.
+  const existing=Array.isArray(ranges[rangeKey]) ? ranges[rangeKey] : [];
+  ranges[rangeKey]=mergeTradesWithoutDuplicates(existing,Array.isArray(importedTrades)?importedTrades:[]);
 
-  // لا تحذف صفقات Excel السابقة عند رفع ملف جديد. احتفظ بكل الصفقات
-  // الموجودة داخل النطاق، ثم أضف الصفقات الجديدة بدون تكرار.
-  ranges[rangeKey]=mergeTradesWithoutDuplicates(
-    Array.isArray(ranges[rangeKey]) ? ranges[rangeKey] : [],
-    importedTrades
-  );
   writeExcelRanges(ranges);
   return ranges[rangeKey];
 }
@@ -523,11 +487,8 @@ function calculateStats(data){
   const grossWin = wins.reduce((s,t)=>s+t.profit,0);
   const grossLoss = negativeTrades.reduce((s,t)=>s+t.profit,0);
   const net = closed.reduce((s,t)=>s+t.profit,0);
-  // نسبة العائد (المعادلة 1): مجموع نسب عوائد الصفقات المغلقة.
-  // لا تعتمد على إجمالي تكلفة الصفقات، لذلك إضافة صفقة رابحة لا تسحب
-  // النسبة إلى الأسفل بسبب زيادة المقام.
   const totalCost = closed.reduce((s,t)=>s+(Math.abs(t.buy)*100),0);
-  const returnP = closed.reduce((s,t)=>s + (Number(t.pct) || 0), 0);
+  const returnP = totalCost ? net/totalCost*100 : 0;
   const winRate = counted.length ? wins.length/counted.length*100 : 0;
   const avgWin = wins.length ? grossWin/wins.length : 0;
   const avgLoss = negativeTrades.length ? grossLoss/negativeTrades.length : 0;
