@@ -872,7 +872,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
     const optionAr = option==='CALL' ? 'Call 📈' : 'Put 📉';
     return `
       <tr>
-        <td class="symbol-cell"><div class="symbol-stack"><span>${escapeHtml(t.symbol)}</span></div></td>
+        <td class="symbol-cell"><div class="symbol-stack"><span>${escapeHtml(t.symbol)}</span>${captureId==='liveShareCapture'?`<span style="display:flex;gap:8px;justify-content:center;margin-top:6px"><button type="button" data-report-edit="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="تعديل الصفقة" style="font-size:24px;cursor:pointer">✏️</button><button type="button" data-report-delete="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="حذف الصفقة" style="font-size:24px;cursor:pointer">🗑️</button></span>`:''}</div></td>
         <td dir="ltr"><span class="info-chip ${option==='CALL'?'call':'put'}" style="display:inline;background:transparent;border:0;border-radius:0;box-shadow:none;padding:0;font-size:27px;font-weight:900;color:${option==='CALL'?'#278c43':'#dc3f36'}">${optionAr}</span></td>
         <td>${escapeHtml(t.strike)}</td>
         <td dir="ltr">${money(t.buy)}</td>
@@ -1629,3 +1629,128 @@ initSharedCloud();
 
 // Q OPTIONS FINAL READY — live preview + iOS save
 console.log('Q OPTIONS BUILD v7.1 LIVE PREVIEW');
+
+
+// تنزيل جميع صفقات الفترة المختارة من معاينة التقرير.
+async function exportReportTradesToExcel(){
+  const data=getFilteredTrades();
+  if(!data.length){showToast('لا توجد صفقات في الفترة المختارة');return}
+  if(!window.ExcelJS){showToast('تعذر تحميل منسق Excel');return}
+  const btn=$('previewExcel');
+  if(btn) btn.disabled=true;
+  try{
+    const order={win:0,stopped:1,loss:2,flat:3,open:4};
+    const rows=[...data].sort((a,b)=>(order[tradeOutcome(a)]??9)-(order[tradeOutcome(b)]??9)||(a.date||'').localeCompare(b.date||'')||String(a.symbol).localeCompare(String(b.symbol)));
+    const workbook=new ExcelJS.Workbook();
+    workbook.creator='Q Options';
+    workbook.calcProperties.fullCalcOnLoad=true;
+    const sheet=workbook.addWorksheet('تقرير الصفقات',{views:[{rightToLeft:true,state:'frozen',ySplit:6}],pageSetup:{orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0}});
+    sheet.columns=[16,13,14,16,16,18,16,16,17,32].map(width=>({width}));
+    const font={name:'Cairo',size:12,bold:true,color:{argb:'FF30261B'}};
+    const border={style:'thin',color:{argb:'FFD8BE87'}};
+    const band=(row,text)=>{sheet.mergeCells(`A${row}:J${row}`);const c=sheet.getCell(`A${row}`);c.value=text;c.font={...font,size:row===1?22:13};c.alignment={horizontal:'center',vertical:'middle',wrapText:true};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF2D99D'}};sheet.getRow(row).height=row===1?44:30;};
+    band(1,'Q OPTIONS — تقرير الصفقات');
+    band(2,`الفترة: ${$('fromDate').value||'—'} → ${$('toDate').value||'—'}`);
+    sheet.getCell('A4').value='الأرباح';
+    sheet.mergeCells('B4:C4');
+    sheet.getCell('E4').value='عدد الصفقات';sheet.getCell('F4').value=rows.length;
+    sheet.getRow(4).height=34;
+    const headers=['الرمز','الخيار','السترايك','سعر الشراء','سعر البيع','الربح','النسبة','الحالة','التاريخ','الملاحظات'];
+    headers.forEach((h,i)=>sheet.getCell(6,i+1).value=h);
+    sheet.getRow(6).height=34;
+    rows.forEach((t,i)=>{
+      const n=i+7,open=tradeOutcome(t)==='open';
+      const buy=Number(t.buy)||0,sell=open?null:Number(t.sell)||0;
+      const profit=open?0:(sell-buy)*100;
+      const row=sheet.getRow(n);
+      row.values=[String(t.symbol||''),t.option||'',String(t.strike??''),buy,sell,
+        {formula:`IF(OR(D${n}="",E${n}=""),"",(E${n}-D${n})*100)`,result:open?'':profit},
+        {formula:`IF(OR(D${n}="",D${n}=0,E${n}=""),"",(E${n}-D${n})/D${n})`,result:open||!buy?'':(sell-buy)/buy},
+        {formula:`IF(E${n}="","مفتوحة",IF(E${n}>D${n},"ربح",IF(AND(E${n}=0,D${n}>0),"خسارة",IF(E${n}<D${n},"موقوفة","متعادل"))))`,result:({win:"ربح",loss:"خسارة",stopped:"موقوفة",open:"مفتوحة",flat:"متعادل"})[tradeOutcome(t)]},
+        /^\d{4}-\d{2}-\d{2}$/.test(t.date||'')?new Date(t.date+'T00:00:00Z'):t.date||'',String(t.notes||'')];
+      row.height=32;
+      for(let c=1;c<=10;c++){
+        const cell=row.getCell(c);
+        cell.font={...font};cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
+        cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:i%2?'FFF7F0E5':'FFFFFFFF'}};
+        cell.border={top:border,bottom:border,left:border,right:border};
+      }
+      [4,5,6].forEach(c=>row.getCell(c).numFmt='"$"#,##0.00;−"$"#,##0.00');
+      row.getCell(7).numFmt='0.00%;−0.00%';row.getCell(9).numFmt='yyyy-mm-dd';
+    });
+    const end=rows.length+6;
+    sheet.getCell('B4').value={formula:`SUM(F7:F${end})`,result:rows.reduce((sum,t)=>sum+(tradeOutcome(t)==='open'?0:((Number(t.sell)||0)-(Number(t.buy)||0))*100),0)};
+    sheet.getCell('B4').numFmt='"$"#,##0.00;−"$"#,##0.00';
+    [4,6].forEach(n=>sheet.getRow(n).eachCell(cell=>{cell.font={...font,size:n===4?16:13};cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF2D99D'}};cell.border={top:border,bottom:border,left:border,right:border};}));
+    for(const [label,color] of [['ربح','FF238247'],['موقوفة','FF138DA4'],['خسارة','FFC43C35'],['مفتوحة','FFB48630']]){
+      sheet.addConditionalFormatting({ref:`F7:H${end}`,rules:[{type:'expression',formulae:[`$H7="${label}"`],style:{font:{color:{argb:color},bold:true}}}]});
+    }
+    sheet.autoFilter=`A6:J${end}`;
+    sheet.pageSetup.printTitlesRow='1:6';
+    band(end+2,'الأرباح لكل عقد = (سعر البيع − سعر الشراء) × 100. إجمالي الأرباح يشمل خصم الخسائر.');
+    const buffer=await workbook.xlsx.writeBuffer();
+    const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download=`Q-Options-Report-${safeFileRange()}.xlsx`;
+    document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+    showToast(`تم تنزيل ${rows.length} صفقة بمعادلات الأرباح`);
+  }catch(err){console.error(err);showToast('تعذر تنزيل تقرير Excel')}
+  finally{if(btn)btn.disabled=false;}
+}
+function addReportExcelButton(){
+  const imageButton=$('previewDownload');
+  if(!imageButton || $('previewExcel'))return;
+  const button=document.createElement('button');
+  button.id='previewExcel';button.type='button';button.className=imageButton.className;button.textContent='تنزيل ملف إكسل';
+  imageButton.insertAdjacentElement('afterend',button);
+  const actions=imageButton.parentElement;
+  actions.style.setProperty('display','flex');actions.style.setProperty('gap','10px');actions.style.setProperty('flex-wrap','wrap');actions.style.setProperty('justify-content','center');
+  button.addEventListener('click',exportReportTradesToExcel);
+}
+addReportExcelButton();
+
+function commitReportTradeChange(original,replacement){
+  const signature=tradeStorageSignature(original);
+  let found=false;
+  for(const [read,write] of [[readManualWeeks,writeManualWeeks],[readExcelRanges,writeExcelRanges]]){
+    const groups=read();let changed=false;
+    for(const key of Object.keys(groups)){
+      if(!Array.isArray(groups[key]))continue;
+      groups[key]=groups[key].flatMap(t=>{
+        if(tradeStorageSignature(t)!==signature)return [t];
+        changed=true;found=true;return replacement?[{...replacement}]:[];
+      });
+    }
+    if(changed)write(groups);
+  }
+  trades=trades.flatMap(t=>tradeStorageSignature(t)===signature?(replacement?[{...replacement}]:[]):[t]);
+  if(!found && replacement){
+    const groups=readExcelRanges(),key=selectedWeekKey();
+    groups[key]=mergeTradesWithoutDuplicates(groups[key]||[],[replacement]);writeExcelRanges(groups);
+  }
+  manualTrades=readManualWeeks()[activeManualWeekKey]||[];
+  renderManualTrades();render();showLivePreview();
+}
+function openReportTradeEditor(trade){
+  document.getElementById('reportTradeEditor')?.remove();
+  const overlay=document.createElement('div');overlay.id='reportTradeEditor';
+  overlay.style.cssText='position:fixed;inset:0;z-index:100000;background:#0008;display:grid;place-items:center;padding:16px;direction:rtl';
+  overlay.innerHTML=`<form style="background:#fff9ed;color:#382b20;border:2px solid #cfaa62;border-radius:18px;padding:22px;width:min(440px,100%);max-height:85vh;overflow:auto;font-family:Cairo,Arial"><h3>تعديل الصفقة</h3>${[
+    ['symbol','الرمز','text'],['strike','السترايك','text'],['buy','سعر الشراء','number'],['sell','سعر البيع (فارغ للمفتوحة)','number'],['date','التاريخ','date'],['notes','الملاحظات','text']
+  ].map(([key,label,type])=>`<label style="display:block;margin:10px 0">${label}<input name="${key}" type="${type}" ${type==='number'?'step="any" min="0"':''} ${key==='symbol'||key==='buy'?'required':''} value="${escapeHtml(trade[key]??'')}" style="display:block;box-sizing:border-box;width:100%;padding:10px;font:inherit"></label>`).join('')}<label>الخيار<select name="option" style="display:block;width:100%;padding:10px;font:inherit"><option value="Call">Call</option><option value="Put">Put</option></select></label><div style="display:flex;gap:12px;margin-top:18px"><button type="submit">حفظ التعديل</button><button type="button" id="reportEditCancel">إلغاء</button></div></form>`;
+  document.body.appendChild(overlay);
+  const form=overlay.querySelector('form');form.elements.option.value=String(trade.option||'').toLowerCase()==='put'?'Put':'Call';
+  overlay.querySelector('#reportEditCancel').onclick=()=>overlay.remove();
+  form.onsubmit=e=>{
+    e.preventDefault();const fields=new FormData(form),buy=Number(fields.get('buy')),rawSell=String(fields.get('sell')).trim(),sell=rawSell===''?null:Number(rawSell);
+    const updated={...trade,symbol:String(fields.get('symbol')).trim().toUpperCase(),strike:String(fields.get('strike')).trim(),buy,sell,date:String(fields.get('date')),option:String(fields.get('option')),notes:String(fields.get('notes')),profit:sell===null?0:(sell-buy)*100,pct:sell===null||!buy?0:(sell-buy)/buy*100};
+    commitReportTradeChange(trade,updated);overlay.remove();showToast('تم حفظ التعديل وتحديث الأرباح');
+  };
+}
+$('previewContent')?.addEventListener('click',e=>{
+  const button=e.target.closest('[data-report-edit],[data-report-delete]');if(!button)return;
+  const signature=decodeURIComponent(button.dataset.reportEdit||button.dataset.reportDelete);
+  const trade=trades.find(t=>tradeStorageSignature(t)===signature);if(!trade)return;
+  if(button.hasAttribute('data-report-edit'))openReportTradeEditor(trade);
+  else if(confirm(`حذف صفقة ${trade.symbol}؟`)){commitReportTradeChange(trade,null);showToast('تم حذف الصفقة وتحديث الأرباح');}
+});
