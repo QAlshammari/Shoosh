@@ -910,8 +910,8 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
           <div class="digital number">${s.counted.length}</div>
         </div>
         <div class="info-stat profit-new">
-          <div class="info-stat-top"><span class="info-icon cash">%</span><div class="info-label"><b>نسبة العائد</b></div></div>
-          <div class="digital profit-new-value">${pct(s.returnP)}</div>
+          <div class="info-stat-top"><span class="info-icon cash">$</span><div class="info-label"><b>الأرباح</b></div></div>
+          <div class="digital profit-new-value">${moneyInt(s.net)}</div>
         </div>
       </div>
 
