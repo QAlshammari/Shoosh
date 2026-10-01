@@ -11,6 +11,7 @@ const SAVED_RANGE_KEY = 'qOptionsSelectedReportRange';
 const MANUAL_WEEKS_KEY = 'qOptionsManualTradesByWeekV1';
 const EXCEL_RANGES_KEY = 'qOptionsExcelTradesByRangeV1';
 const MANUAL_DRAFTS_KEY = 'qOptionsManualDraftsByWeekV1';
+const REPORT_CHECKPOINTS_KEY = 'qOptionsReportCheckpointsV1';
 const MANUAL_PAGE_OPEN_KEY = 'qOptionsManualPageOpenV1';
 const FIREBASE_CONFIG = {
   apiKey:'AIzaSyBxX734w0Az7nww2TyfQ2TNwM6Sk0U8pcU',
@@ -28,17 +29,19 @@ let applyingCloudState=false;
 let cloudSaveTimer=null;
 
 function writeManualWeeks(weeks,{sync=true}={}){
+  if(sync && !applyingCloudState) createReportCheckpoint();
   localStorage.setItem(MANUAL_WEEKS_KEY,JSON.stringify(weeks||{}));
   if(sync) scheduleCloudSave();
 }
 
 function writeExcelRanges(ranges,{sync=true}={}){
+  if(sync && !applyingCloudState) createReportCheckpoint();
   localStorage.setItem(EXCEL_RANGES_KEY,JSON.stringify(ranges||{}));
   if(sync) scheduleCloudSave();
 }
 
 function sharedCloudPayload(){
-  return {initialized:true,manualWeeks:readManualWeeks(),excelRanges:readExcelRanges(),updatedAt:Date.now()};
+  return {initialized:true,manualWeeks:readManualWeeks(),excelRanges:readExcelRanges(),checkpoints:readReportCheckpoints(),updatedAt:Date.now()};
 }
 
 function scheduleCloudSave(){
@@ -67,6 +70,7 @@ function applyCloudStores(data){
   applyingCloudState=true;
   writeManualWeeks(data?.manualWeeks||{},{sync:false});
   writeExcelRanges(data?.excelRanges||{},{sync:false});
+  if(Array.isArray(data?.checkpoints)) localStorage.setItem(REPORT_CHECKPOINTS_KEY,JSON.stringify(data.checkpoints));
   applyingCloudState=false;
   activeManualWeekKey=selectedWeekKey();
   manualTrades=readManualWeeks()[activeManualWeekKey]||[];
@@ -107,6 +111,61 @@ async function initSharedCloud(){
     showToast('تعذر الاتصال بقاعدة الصفقات المشتركة');
   }
 }
+
+function readReportCheckpoints(){
+  try{return JSON.parse(localStorage.getItem(REPORT_CHECKPOINTS_KEY)||'[]')||[]}catch(_e){return []}
+}
+function createReportCheckpoint(){
+  try{
+    const manualWeeks=readManualWeeks(),excelRanges=readExcelRanges();
+    const state=JSON.stringify({manualWeeks,excelRanges});
+    const checkpoints=readReportCheckpoints();
+    if(checkpoints[0]?.state===state)return;
+    checkpoints.unshift({id:`${Date.now()}-${Math.random().toString(36).slice(2,7)}`,createdAt:Date.now(),state,manualWeeks,excelRanges});
+    localStorage.setItem(REPORT_CHECKPOINTS_KEY,JSON.stringify(checkpoints.slice(0,40)));
+  }catch(err){console.warn('Could not save report checkpoint',err)}
+}
+function restoreReportCheckpoint(id){
+  const checkpoint=readReportCheckpoints().find(item=>item.id===id);if(!checkpoint)return;
+  if(!confirm('استعادة هذه النقطة؟ ستُستبدل الصفقات الحالية بالنسخة المحفوظة.'))return;
+  createReportCheckpoint();
+  applyingCloudState=true;
+  writeManualWeeks(checkpoint.manualWeeks||{},{sync:false});
+  writeExcelRanges(checkpoint.excelRanges||{},{sync:false});
+  applyingCloudState=false;
+  activeManualWeekKey=selectedWeekKey();manualTrades=readManualWeeks()[activeManualWeekKey]||[];
+  trades=storedTradesForSelectedRange().map(t=>({...t}));importedWorkbookActive=trades.length>0;
+  renderManualTrades();render();showLivePreview();scheduleCloudSave();
+  showToast('تمت استعادة الصفقات');
+}
+function showReportCheckpoints(){
+  document.getElementById('reportCheckpointsModal')?.remove();
+  const list=readReportCheckpoints();
+  const overlay=document.createElement('div');overlay.id='reportCheckpointsModal';
+  overlay.style.cssText='position:fixed;inset:0;z-index:100001;background:#0009;display:grid;place-items:center;padding:16px;direction:rtl';
+  const dateFmt=new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short'});
+  const today=new Date(),todayLocal=new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  overlay.innerHTML=`<section style="background:#fff9ed;color:#382b20;border:2px solid #cfaa62;border-radius:18px;padding:20px;width:min(520px,100%);max-height:80vh;overflow:auto;font-family:Cairo,Arial"><h3 style="margin-top:0">استعادة الصفقات حسب التاريخ</h3><p>اختاري تاريخًا للرجوع لآخر نقطة محفوظة في ذلك اليوم أو قبله.</p><label style="display:block;font-weight:700">تاريخ الاستعادة<input id="restoreThroughDate" type="date" value="${todayLocal}" style="display:block;width:100%;box-sizing:border-box;margin:8px 0 12px;padding:11px;font:inherit"></label><button type="button" data-restore-through-date style="width:100%;padding:12px;background:#b88026;color:#fff;border:0;border-radius:10px;font:700 16px Cairo,Arial">استعادة حتى هذا التاريخ</button><hr style="margin:18px 0;border-color:#dfc991"><b>أو اختاري نقطة محفوظة:</b>${list.length?list.map((cp,i)=>`<button type="button" data-restore-checkpoint="${cp.id}" style="display:block;width:100%;text-align:right;margin:8px 0;padding:12px;border:1px solid #d0af6a;border-radius:10px;background:${i===0?'#f9ebc9':'#fff'};font:600 15px Cairo,Arial;cursor:pointer">${dateFmt.format(new Date(cp.createdAt))} — استعادة هذه النسخة</button>`).join(''):'<p>ما فيه نقاط محفوظة للحين. تُنشأ نقطة تلقائيًا قبل التعديل أو الحذف القادم.</p>'}<button type="button" data-close-checkpoints style="margin-top:10px;padding:10px 20px">إغلاق</button></section>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{
+    const restore=e.target.closest('[data-restore-checkpoint]');
+    if(restore){restoreReportCheckpoint(restore.dataset.restoreCheckpoint);overlay.remove();return}
+    if(e.target.closest('[data-restore-through-date]')){
+      const date=overlay.querySelector('#restoreThroughDate').value;
+      if(!date){showToast('اختاري تاريخ الاستعادة');return}
+      const cutoff=new Date(`${date}T23:59:59.999`).getTime();
+      const checkpoint=readReportCheckpoints().filter(cp=>cp.createdAt<=cutoff).sort((a,b)=>b.createdAt-a.createdAt)[0];
+      if(!checkpoint){showToast('ما فيه نقطة محفوظة في هذا التاريخ أو قبله');return}
+      restoreReportCheckpoint(checkpoint.id);overlay.remove();return;
+    }
+    if(e.target===overlay||e.target.closest('[data-close-checkpoints]'))overlay.remove();
+  });
+}
+function addReportCheckpointButton(){
+  const actions=$('previewDownload')?.parentElement;if(!actions||$('previewCheckpoints'))return;
+  const button=document.createElement('button');button.id='previewCheckpoints';button.type='button';button.className='preview-download';button.textContent='نقاط الاستعادة';button.addEventListener('click',showReportCheckpoints);actions.appendChild(button);
+}
+addReportCheckpointButton();
 
 function selectedWeekKey(){
   const from=$('fromDate')?.value || currentWeekRange().from;
@@ -872,7 +931,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
     const optionAr = option==='CALL' ? 'Call 📈' : 'Put 📉';
     return `
       <tr>
-        <td class="symbol-cell"><div class="symbol-stack"><span>${escapeHtml(t.symbol)}</span>${captureId==='liveShareCapture'?`<span style="display:flex;gap:8px;justify-content:center;margin-top:6px"><button type="button" data-report-edit="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="تعديل الصفقة" style="font-size:24px;cursor:pointer">✏️</button><button type="button" data-report-delete="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="حذف الصفقة" style="font-size:24px;cursor:pointer">🗑️</button></span>`:''}</div></td>
+        <td class="symbol-cell"><div class="symbol-stack"><span>${escapeHtml(t.symbol)}</span></div></td>
         <td dir="ltr"><span class="info-chip ${option==='CALL'?'call':'put'}" style="display:inline;background:transparent;border:0;border-radius:0;box-shadow:none;padding:0;font-size:27px;font-weight:900;color:${option==='CALL'?'#278c43':'#dc3f36'}">${optionAr}</span></td>
         <td>${escapeHtml(t.strike)}</td>
         <td dir="ltr">${money(t.buy)}</td>
@@ -880,8 +939,9 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
         <td class="info-profit ${st.cls==='stopped'?'stopped-value':(t.profit>=0?'pos':'neg')}">${t.sell===null&&t.profit===0?'—':money(t.profit)}</td>
         <td class="info-pct ${st.cls==='stopped'?'stopped-value':(t.pct>=0?'pos':'neg')}">${t.sell===null&&t.profit===0?'—':pct(t.pct)}</td>
         <td><span class="info-status ${st.cls}" style="display:inline;background:transparent;border:0;border-radius:0;box-shadow:none;padding:0;font-size:27px;font-weight:900">${statusAr}</span></td>
+        ${captureId==='liveShareCapture'?`<td class="report-actions-cell" style="white-space:nowrap"><button type="button" data-report-edit="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="تعديل الصفقة" style="background:#d7a43d;color:#241608;border:1px solid #9b6a1d;border-radius:8px;padding:8px 12px;font:700 18px Cairo,Arial;cursor:pointer">✏️ تعديل</button> <button type="button" data-report-delete="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="حذف الصفقة" style="background:#c83f37;color:white;border:1px solid #922720;border-radius:8px;padding:8px 12px;font:700 18px Cairo,Arial;cursor:pointer">🗑 حذف</button></td>`:''}
       </tr>`;
-  }).join('') : `<tr><td colspan="8">لا توجد صفقات ضمن الفترة المحددة</td></tr>`;
+  }).join('') : `<tr><td colspan="${captureId==='liveShareCapture'?9:8}">لا توجد صفقات ضمن الفترة المحددة</td></tr>`;
 
   return `
     <div class="infographic-card refined-light" id="${captureId}">
@@ -996,6 +1056,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
               <th>الربح</th>
               <th>النسبة</th>
               <th>الحالة</th>
+              ${captureId==='liveShareCapture'?'<th>الإجراءات</th>':''}
             </tr>
           </thead>
           <tbody>${rows}</tbody>
