@@ -161,8 +161,14 @@ function showReportCheckpoints(){
     if(e.target===overlay||e.target.closest('[data-close-checkpoints]'))overlay.remove();
   });
 }
+function stylePreviewActionButtons(){
+  if(document.getElementById('previewActionStyle'))return;
+  const style=document.createElement('style');style.id='previewActionStyle';
+  style.textContent='.preview-actions{gap:8px!important;padding:10px!important}.preview-actions .preview-download{font-size:clamp(13px,2vw,18px)!important;padding:8px 13px!important;min-height:40px!important;border-radius:12px!important;background:linear-gradient(180deg,#ead7a9,#d4b877)!important;color:#493817!important;border:1px solid #b99a5b!important;box-shadow:0 2px 4px #70551e44!important;text-shadow:none!important}';document.head.appendChild(style);
+}
 function addReportCheckpointButton(){
   const actions=$('previewDownload')?.parentElement;if(!actions||$('previewCheckpoints'))return;
+  stylePreviewActionButtons();
   const button=document.createElement('button');button.id='previewCheckpoints';button.type='button';button.className='preview-download';button.textContent='نقاط الاستعادة';button.addEventListener('click',showReportCheckpoints);actions.appendChild(button);
 }
 addReportCheckpointButton();
@@ -939,7 +945,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
         <td class="info-profit ${st.cls==='stopped'?'stopped-value':(t.profit>=0?'pos':'neg')}">${t.sell===null&&t.profit===0?'—':money(t.profit)}</td>
         <td class="info-pct ${st.cls==='stopped'?'stopped-value':(t.pct>=0?'pos':'neg')}">${t.sell===null&&t.profit===0?'—':pct(t.pct)}</td>
         <td><span class="info-status ${st.cls}" style="display:inline;background:transparent;border:0;border-radius:0;box-shadow:none;padding:0;font-size:27px;font-weight:900">${statusAr}</span></td>
-        ${captureId==='liveShareCapture'?`<td class="report-actions-cell" style="white-space:nowrap"><button type="button" data-report-edit="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="تعديل الصفقة" style="background:#d7a43d;color:#241608;border:1px solid #9b6a1d;border-radius:8px;padding:8px 12px;font:700 18px Cairo,Arial;cursor:pointer">✏️ تعديل</button> <button type="button" data-report-delete="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="حذف الصفقة" style="background:#c83f37;color:white;border:1px solid #922720;border-radius:8px;padding:8px 12px;font:700 18px Cairo,Arial;cursor:pointer">🗑 حذف</button></td>`:''}
+        ${captureId==='liveShareCapture'?`<td class="report-actions-cell" style="white-space:nowrap"><button type="button" data-report-edit="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="تعديل الصفقة" style="background:#d7a43d;color:#241608;border:1px solid #9b6a1d;border-radius:8px;padding:10px 14px;font:700 30px Cairo,Arial;cursor:pointer">✏️ تعديل</button> <button type="button" data-report-delete="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="حذف الصفقة" style="background:#c83f37;color:white;border:1px solid #922720;border-radius:8px;padding:10px 14px;font:700 30px Cairo,Arial;cursor:pointer">🗑 حذف</button></td>`:''}
       </tr>`;
   }).join('') : `<tr><td colspan="${captureId==='liveShareCapture'?9:8}">لا توجد صفقات ضمن الفترة المحددة</td></tr>`;
 
@@ -1045,7 +1051,8 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
           </div>
           <div class="table-week-date table-head-box"><span class="week-date-icon">📅</span><span>${periodText}</span></div>
         </div>
-        <table class="info-table roomy">
+        ${captureId==='liveShareCapture'?'<div class="report-table-scroll" style="max-width:100%;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;overscroll-behavior-x:contain;border-radius:10px"><div style="padding:5px 10px;text-align:center;color:#806637;font:600 17px Cairo,Arial">اسحبي الجدول يمينًا ويسارًا لرؤية كل الأعمدة وأزرار التعديل والحذف</div>':''}
+        <table class="info-table roomy" ${captureId==='liveShareCapture'?'style="width:2100px!important;min-width:2100px!important;max-width:none!important;table-layout:fixed!important"':''}>
           <thead>
             <tr>
               <th>الرمز</th>
@@ -1061,6 +1068,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
           </thead>
           <tbody>${rows}</tbody>
         </table>
+        ${captureId==='liveShareCapture'?'</div>':''}
       </div>
 
       <div class="report-footer-note footer-only">
@@ -1761,6 +1769,7 @@ async function exportReportTradesToExcel(){
 function addReportExcelButton(){
   const imageButton=$('previewDownload');
   if(!imageButton || $('previewExcel'))return;
+  stylePreviewActionButtons();
   const button=document.createElement('button');
   button.id='previewExcel';button.type='button';button.className=imageButton.className;button.textContent='تنزيل ملف إكسل';
   imageButton.insertAdjacentElement('afterend',button);
