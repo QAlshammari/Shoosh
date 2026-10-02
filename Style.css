@@ -4490,3 +4490,9 @@ body{
   line-height:1!important;
   letter-spacing:0!important;
 }
+
+/* يبقى سطر الانسحاب أسود في التقرير وملفات التصدير. */
+.info-table tbody tr.flat-trade td:not(.report-actions-cell),
+.info-table tbody tr.flat-trade td:not(.report-actions-cell) *{color:#000!important}
+.distribution-segment.flat{stroke:#b6b6b6!important}
+.legend-row.flat i{background:#b6b6b6!important}

@@ -562,7 +562,7 @@ function calculateStats(data){
   const wins = closed.filter(t => tradeOutcome(t) === 'win');
   const stopped = closed.filter(t => tradeOutcome(t) === 'stopped');
   const losses = closed.filter(t => tradeOutcome(t) === 'loss');
-  const counted = closed.filter(t => ['win','loss','stopped'].includes(tradeOutcome(t)));
+  const counted = closed.filter(t => ['win','loss','stopped','flat'].includes(tradeOutcome(t)));
   const negativeTrades = [...losses,...stopped];
   const grossWin = wins.reduce((s,t)=>s+t.profit,0);
   const grossLoss = negativeTrades.reduce((s,t)=>s+t.profit,0);
@@ -624,7 +624,7 @@ function render(){
   $('worstDay').textContent=money(s.worstDay); colorize($('worstDay'),s.worstDay);
 
   renderTable(filtered);
-  renderCharts(s.ordered,s.byDay,s.wins.length,s.losses.length,s.stopped.length);
+  renderCharts(s.ordered,s.byDay,s.wins.length,s.losses.length,s.stopped.length,s.counted.filter(t=>tradeOutcome(t)==='flat').length);
   $('equityFinal').textContent=money(s.net);
   $('rowsCount').textContent=`${filtered.length} صفقة`;
 }
@@ -696,7 +696,7 @@ function chartGradient(context,top,bottom){
   return g;
 }
 
-function renderCharts(ordered,byDay,winCount,lossCount,stoppedCount=0){
+function renderCharts(ordered,byDay,winCount,lossCount,stoppedCount=0,flatCount=0){
   if(!window.Chart) return;
   chartDefaults();
   const eqLabels=[],eqData=[];let cum=0;
@@ -716,7 +716,7 @@ function renderCharts(ordered,byDay,winCount,lossCount,stoppedCount=0){
   });
   winLossChart=new Chart($('winLossChart'),{
     type:'doughnut',
-    data:{labels:['ناجحة','خاسرة','موقوفة'],datasets:[{data:[winCount,lossCount,stoppedCount],backgroundColor:c=>chartGradient(c,c.dataIndex===0?'#9ee3af':c.dataIndex===1?'#ffaaa0':'#9fe9f2',c.dataIndex===0?'#27854b':c.dataIndex===1?'#b92e2a':'#159ab1'),borderColor:['#fff5d7','#fff0e8','#e8fbff'],borderWidth:4,hoverOffset:10,spacing:3}]},
+    data:{labels:['ناجحة','خاسرة','موقوفة','انسحاب'],datasets:[{data:[winCount,lossCount,stoppedCount,flatCount],backgroundColor:c=>c.dataIndex===3?'#b6b6b6':chartGradient(c,c.dataIndex===0?'#9ee3af':c.dataIndex===1?'#ffaaa0':'#9fe9f2',c.dataIndex===0?'#27854b':c.dataIndex===1?'#b92e2a':'#159ab1'),borderColor:['#fff5d7','#fff0e8','#e8fbff','#eeeeee'],borderWidth:4,hoverOffset:10,spacing:3}]},
     options:{responsive:true,maintainAspectRatio:false,animation:false,cutout:'58%',rotation:-105,circumference:360,plugins:{legend:{position:'right',rtl:true,labels:{boxWidth:15,padding:18,font:{weight:'800'}}}}}
   });
 }
@@ -876,7 +876,7 @@ function tradeStatusMeta(trade){
   if(outcome==='stopped') return {cls:'stopped',labelAr:'موقوفة'};
   if(outcome==='loss') return {cls:'loss',labelAr:'خاسرة'};
   if(outcome==='open') return {cls:'open',labelAr:'مفتوحة'};
-  if(outcome==='flat') return {cls:'flat',labelAr:'متعادل'};
+  if(outcome==='flat') return {cls:'flat',labelAr:'انسحاب'};
   return {cls:'win',labelAr:'ناجحة'};
 }
 
@@ -888,8 +888,8 @@ function buildPdfTemplate(){
 function buildShareTemplate(maxRows=10, captureId="shareCapture"){
   const filtered=getFilteredTrades();
   const s=calculateStats(filtered);
-  // ترتيب التقرير: الناجحة أولاً، ثم الموقوفة، ثم الخاسرة.
-  const outcomeOrder={win:0,stopped:1,loss:2};
+  // ترتيب التقرير: الناجحة، ثم الموقوفة، ثم الخاسرة، ثم الانسحاب.
+  const outcomeOrder={win:0,stopped:1,loss:2,flat:3};
   const rowsData=[...s.counted].sort((a,b)=>
     (outcomeOrder[tradeOutcome(a)]??9)-(outcomeOrder[tradeOutcome(b)]??9) ||
     (a.date||'').localeCompare(b.date||'') ||
@@ -898,6 +898,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
   const periodText=`${$('fromDate').value || '—'}  →  ${$('toDate').value || '—'}`;
   const winPct = s.counted.length ? (s.wins.length / s.counted.length * 100) : 0;
   const stoppedCount = s.stopped.length;
+  const flatCount = s.counted.filter(t=>tradeOutcome(t)==='flat').length;
   const lossPct = s.counted.length ? (s.losses.length / s.counted.length * 100) : 0;
   const stoppedPct = s.counted.length ? (stoppedCount / s.counted.length * 100) : 0;
   const distributionPct=n=>s.counted.length?(n/s.counted.length*100):0;
@@ -914,14 +915,14 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
     const h=Math.max(4,Math.abs(t.profit)/maxTrade*55);
     const y=t.profit>=0?72-h:72;
     const state=tradeOutcome(t);
-    const color=state==='win'?`url(#barWin-${captureId})`:state==='stopped'?`url(#barStopped-${captureId})`:`url(#barLoss-${captureId})`;
+    const color=state==='flat'?'#b6b6b6':state==='win'?`url(#barWin-${captureId})`:state==='stopped'?`url(#barStopped-${captureId})`:`url(#barLoss-${captureId})`;
     const slot=304/Math.max(1,chartTrades.length);
     const w=Math.min(24,Math.max(7,slot*.58));
     const barX=x+(slot-w)/2;
     const cx=barX+w/2;
     const capY=t.profit>=0?y:y+h;
     return `<g class="cylinder-bar">
-      <rect x="${barX.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="${Math.min(7,w/2).toFixed(1)}" fill="${color}" stroke="${state==='win'?'#237b43':state==='stopped'?'#14859a':'#a92f29'}" stroke-width="1.2"/>
+      <rect x="${barX.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="${Math.min(7,w/2).toFixed(1)}" fill="${color}" stroke="${state==='flat'?'#888888':state==='win'?'#237b43':state==='stopped'?'#14859a':'#a92f29'}" stroke-width="1.2"/>
       <rect x="${(barX+w*.16).toFixed(1)}" y="${(y+2).toFixed(1)}" width="${(w*.20).toFixed(1)}" height="${Math.max(0,h-4).toFixed(1)}" rx="1.5" fill="rgba(255,255,255,.34)"/>
       <text class="bar-symbol" x="${cx.toFixed(1)}" y="146" text-anchor="start" transform="rotate(-90 ${cx.toFixed(1)} 146)">${escapeHtml(t.symbol).slice(0,5)}</text>
     </g>`;
@@ -936,14 +937,14 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
     const statusAr = st.labelAr;
     const optionAr = option==='CALL' ? 'Call 📈' : 'Put 📉';
     return `
-      <tr>
+      <tr class="${st.cls==='flat'?'flat-trade':''}">
         <td class="symbol-cell"><div class="symbol-stack"><span>${escapeHtml(t.symbol)}</span></div></td>
         <td dir="ltr"><span class="info-chip ${option==='CALL'?'call':'put'}" style="display:inline;background:transparent;border:0;border-radius:0;box-shadow:none;padding:0;font-size:27px;font-weight:900;color:${option==='CALL'?'#278c43':'#dc3f36'}">${optionAr}</span></td>
         <td>${escapeHtml(t.strike)}</td>
         <td dir="ltr">${money(t.buy)}</td>
         <td dir="ltr">${t.sell===null?'—':money(t.sell)}</td>
-        <td class="info-profit ${st.cls==='stopped'?'stopped-value':(t.profit>=0?'pos':'neg')}">${t.sell===null&&t.profit===0?'—':money(t.profit)}</td>
-        <td class="info-pct ${st.cls==='stopped'?'stopped-value':(t.pct>=0?'pos':'neg')}">${t.sell===null&&t.profit===0?'—':pct(t.pct)}</td>
+        <td class="info-profit ${st.cls==='flat'?'flat-value':st.cls==='stopped'?'stopped-value':(t.profit>=0?'pos':'neg')}">${t.sell===null&&t.profit===0?'—':money(t.profit)}</td>
+        <td class="info-pct ${st.cls==='flat'?'flat-value':st.cls==='stopped'?'stopped-value':(t.pct>=0?'pos':'neg')}">${t.sell===null&&t.profit===0?'—':pct(t.pct)}</td>
         <td><span class="info-status ${st.cls}" style="display:inline;background:transparent;border:0;border-radius:0;box-shadow:none;padding:0;font-size:27px;font-weight:900">${statusAr}</span></td>
         ${captureId==='liveShareCapture'?`<td class="report-actions-cell" style="white-space:nowrap"><button type="button" data-report-edit="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="تعديل الصفقة" style="background:#d7a43d;color:#241608;border:1px solid #9b6a1d;border-radius:8px;padding:10px 14px;font:700 30px Cairo,Arial;cursor:pointer">✏️ تعديل</button> <button type="button" data-report-delete="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="حذف الصفقة" style="background:#c83f37;color:white;border:1px solid #922720;border-radius:8px;padding:10px 14px;font:700 30px Cairo,Arial;cursor:pointer">🗑 حذف</button></td>`:''}
       </tr>`;
@@ -992,6 +993,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
                 <circle class="distribution-segment win" cx="70" cy="70" r="50" pathLength="100" stroke-dasharray="${distributionPct(s.wins.length).toFixed(2)} ${(100-distributionPct(s.wins.length)).toFixed(2)}" stroke-dashoffset="0"/>
                 <circle class="distribution-segment stopped" cx="70" cy="70" r="50" pathLength="100" stroke-dasharray="${distributionPct(stoppedCount).toFixed(2)} ${(100-distributionPct(stoppedCount)).toFixed(2)}" stroke-dashoffset="-${distributionPct(s.wins.length).toFixed(2)}"/>
                 <circle class="distribution-segment loss" cx="70" cy="70" r="50" pathLength="100" stroke-dasharray="${distributionPct(s.losses.length).toFixed(2)} ${(100-distributionPct(s.losses.length)).toFixed(2)}" stroke-dashoffset="-${(distributionPct(s.wins.length)+distributionPct(stoppedCount)).toFixed(2)}"/>
+                <circle class="distribution-segment flat" cx="70" cy="70" r="50" pathLength="100" stroke-dasharray="${distributionPct(flatCount).toFixed(2)} ${(100-distributionPct(flatCount)).toFixed(2)}" stroke-dashoffset="-${(distributionPct(s.wins.length)+distributionPct(stoppedCount)+distributionPct(s.losses.length)).toFixed(2)}"/>
               </svg>
               <div class="distribution-total"><b>${s.counted.length}</b><span>إجمالي</span></div>
             </div>
@@ -999,6 +1001,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
               <div class="legend-row win"><i></i><span>ناجحة</span><b>${s.wins.length} — ${winPct.toFixed(1).replace('.0','')}%</b></div>
               <div class="legend-row stopped"><i></i><span>موقوفة</span><b>${stoppedCount} — ${stoppedPct.toFixed(1).replace('.0','')}%</b></div>
               <div class="legend-row loss"><i></i><span>خاسرة</span><b>${s.losses.length} — ${lossPct.toFixed(1).replace('.0','')}%</b></div>
+              ${flatCount?`<div class="legend-row flat"><i></i><span>انسحاب</span><b>${flatCount} — ${distributionPct(flatCount).toFixed(1).replace('.0','')}%</b></div>`:''}
             </div>
           </div>
         </div>
@@ -1527,7 +1530,7 @@ async function exportManualTradesToExcel(){
       });
       row.getCell(3).numFmt='$0.00';row.getCell(4).numFmt='$0.00';row.getCell(6).numFmt='$0.00';row.getCell(7).numFmt='0.00%';
       const state=tradeStatusMeta(manualTrades[r-2]);
-      const stateColor=state.cls==='win'?'FF238247':state.cls==='stopped'?'FF138DA4':'FFC43C35';
+      const stateColor=state.cls==='win'?'FF238247':state.cls==='stopped'?'FF138DA4':state.cls==='loss'?'FFC43C35':'FF30261B';
       [row.getCell(6),row.getCell(7),row.getCell(8)].forEach(cell=>{cell.font={name:'Arial',size:11,bold:true,color:{argb:stateColor}}});
     }
     sheet.autoFilter={from:'A1',to:'J1'};
@@ -1735,7 +1738,7 @@ async function exportReportTradesToExcel(){
       row.values=[String(t.symbol||''),t.option||'',String(t.strike??''),buy,sell,
         {formula:`IF(OR(D${n}="",E${n}=""),"",(E${n}-D${n})*100)`,result:open?'':profit},
         {formula:`IF(OR(D${n}="",D${n}=0,E${n}=""),"",(E${n}-D${n})/D${n})`,result:open||!buy?'':(sell-buy)/buy},
-        {formula:`IF(E${n}="","مفتوحة",IF(E${n}>D${n},"ربح",IF(AND(E${n}=0,D${n}>0),"خسارة",IF(E${n}<D${n},"موقوفة","متعادل"))))`,result:({win:"ربح",loss:"خسارة",stopped:"موقوفة",open:"مفتوحة",flat:"متعادل"})[tradeOutcome(t)]},
+        {formula:`IF(E${n}="","مفتوحة",IF(E${n}>D${n},"ربح",IF(AND(E${n}=0,D${n}>0),"خسارة",IF(E${n}<D${n},"موقوفة","انسحاب"))))`,result:({win:"ربح",loss:"خسارة",stopped:"موقوفة",open:"مفتوحة",flat:"انسحاب"})[tradeOutcome(t)]},
         /^\d{4}-\d{2}-\d{2}$/.test(t.date||'')?new Date(t.date+'T00:00:00Z'):t.date||'',String(t.notes||'')];
       row.height=32;
       for(let c=1;c<=10;c++){
