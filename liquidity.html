@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="liquidity.css?v=1">
+  <link rel="stylesheet" href="liquidity.css?v=2">
 </head>
 <body>
   <main class="shell">
@@ -21,7 +21,7 @@
     <section class="title">
       <span>US STOCK LIQUIDITY</span>
       <h1>فاحص سيولة الأسهم الأمريكية</h1>
-      <p>حدّث الفحص لعرض قيمة التداول والتدفق اليومي ومؤشرات السيولة</p>
+      <p>قائمة متابعة مختارة · تُعرض الأسهم التي تجتاز التحقق الشرعي فقط</p>
     </section>
 
     <section class="controls" aria-label="إعدادات الفحص">
@@ -36,21 +36,20 @@
           <option value="50000000">٥٠ مليونًا</option>
         </select>
       </label>
-      <label class="check-label"><input id="includeEtfs" type="checkbox"> تضمين الصناديق المتداولة</label>
       <button id="refreshBtn" class="refresh" type="button"><span>⟳</span> تحديث الفحص</button>
       <button id="eventsBtn" class="events-button" type="button"><span>▣</span> أهم أخبار الأسبوع</button>
     </section>
 
-    <div id="notice" class="notice" role="status">اضغطي «تحديث الفحص» لبدء فحص الأسهم الأمريكية.</div>
+    <div id="notice" class="notice" role="status">اضغطي «تحديث الفحص» لفحص الأسهم المعروفة والتحقق من توافقها قبل عرض السيولة.</div>
 
     <section id="eventsPanel" class="events-panel" hidden>
-      <div class="events-heading"><div><h2>أهم الأخبار والبيانات الاقتصادية المجدولة</h2><p>المواعيد المتبقية من أسبوع التقويم الحالي (الأحد إلى السبت) · بتوقيت السعودية</p></div><span id="eventsUpdated"></span></div>
+      <div class="events-heading"><div><h2>أهم أخبار وبيانات الأسبوع</h2><p>من الاثنين إلى الجمعة للأسبوع الذي يبدأ فيه تاريخ «من» في تقويم الرئيسية، مع إبقاء المواعيد السابقة · بتوقيت السعودية</p></div><span id="eventsUpdated"></span></div>
       <div id="eventsList" class="events-list"><p class="events-empty">اضغطي زر «أهم أخبار الأسبوع» لجلب المواعيد.</p></div>
       <div class="event-sources">المصادر الرسمية: <a href="https://www.bls.gov/schedule/" target="_blank" rel="noopener">مكتب إحصاءات العمل BLS</a> · <a href="https://www.bea.gov/news/schedule/" target="_blank" rel="noopener">مكتب التحليل الاقتصادي BEA</a> · <a href="https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" target="_blank" rel="noopener">الاحتياطي الفيدرالي</a></div>
     </section>
 
     <section class="stats" aria-label="ملخص السيولة">
-      <article><span>الأسهم المفحوصة</span><strong id="scanned">—</strong></article>
+      <article><span>الأسهم المؤهلة المفحوصة</span><strong id="scanned">—</strong></article>
       <article><span>تدفق التداول اليومي</span><strong id="flow">—</strong><small>إجمالي قيمة التداول في أحدث جلسة</small></article>
       <article><span>سيولة مرتفعة</span><strong id="high">—</strong></article>
       <article><span>سيولة متوسطة</span><strong id="medium">—</strong></article>
@@ -67,7 +66,7 @@
 
     <section class="table-card">
       <div class="table-heading">
-        <div><h2>نتائج فحص السيولة</h2><p>التدفق اليومي = سعر الإغلاق × حجم التداول لآخر جلسة متاحة.</p></div>
+      <div><h2>نتائج فحص السيولة · الأسهم المتوافقة فقط</h2><p>التدفق اليومي = سعر الإغلاق × حجم التداول لآخر جلسة متاحة.</p></div>
         <input id="search" type="search" placeholder="ابحثي برمز السهم" aria-label="ابحثي برمز السهم">
       </div>
       <div class="table-scroll">
@@ -78,10 +77,10 @@
           <tbody id="results"><tr><td class="empty" colspan="9">لا توجد نتائج بعد. اضغطي تحديث الفحص.</td></tr></tbody>
         </table>
       </div>
-      <footer id="resultCount">يعرض الفحص الأسهم التي تحقق الحد الأدنى المحدد.</footer>
+      <footer id="resultCount">قائمة متابعة مختارة للمتداولين، ويُستبعد السهم غير المعروف أو الحدّي من التصنيف.</footer>
     </section>
-    <p class="disclaimer">البيانات من Yahoo Finance عبر yfinance وقد تتأخر أو تتأثر بتوفر المصدر. «التدفق» هنا قيمة التداول اليومية، وليس تدفق أوامر شراء وبيع لحظي.</p>
+    <p class="disclaimer">التصنيف من <a href="https://askmizan.com/api-docs" target="_blank" rel="noopener">Mizan</a> ويشترط اجتياز معايير AAOIFI وDow Jones وS&amp;P وMSCI مع استبعاد الحالات الحدّية؛ يوضح المصدر أن بعض فحص الإيرادات الجانبية يحتاج مراجعة إضافية، لذا هذا فحص آلي وليس فتوى. أسعار السيولة من Yahoo Finance وقد تتأخر. «التدفق» قيمة تداول يومية وليس تدفق أوامر شراء وبيع لحظيًا. مؤشرات السوق للمقارنة فقط وليست ضمن قائمة الأسهم المفحوصة.</p>
   </main>
-  <script src="liquidity.js?v=1"></script>
+  <script src="liquidity.js?v=2"></script>
 </body>
 </html>

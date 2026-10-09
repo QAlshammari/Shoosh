@@ -2,10 +2,10 @@
 from datetime import date, datetime, time as dtime, timedelta, timezone
 from html import unescape
 from html.parser import HTMLParser
-import io
 import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -19,11 +19,20 @@ APP_DIR = Path(__file__).resolve().parent
 app = Flask(__name__, static_folder=None)
 CORS(app, origins=os.getenv("LIQUIDITY_CORS_ORIGIN", "*"))
 
-NASDAQ_URL = "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt"
-OTHER_URL = "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt"
 BLS_ICS_URL = "https://www.bls.gov/schedule/news_release/bls.ics"
 BEA_RELEASES_URL = "https://apps.bea.gov/API/signup/release_dates.json"
 FED_FOMC_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+MIZAN_SCREEN_URL = "https://askmizan.com/api/v1/screen/{}"
+# Curated names frequently followed by US options traders. The live screen below
+# decides which of these can appear; this list is never treated as a halal list.
+POPULAR_WATCHLIST = [
+    "AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "AMD",
+    "AVGO", "TSM", "MU", "PLTR", "NFLX", "ORCL", "QCOM", "INTC",
+    "CRM", "ADBE", "SHOP", "UBER", "COIN", "MSTR", "HOOD", "SOFI",
+    "LLY", "COST", "WMT", "JPM", "XOM", "DIS", "ARM", "SMCI",
+]
+SCREEN_CACHE = {"expires": 0, "reports": [], "failed": 0}
+SCREEN_CACHE_SECONDS = 6 * 60 * 60
 PUBLIC_SUFFIXES = {".html", ".css", ".js", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".webmanifest"}
 
 
@@ -40,22 +49,41 @@ def public_files(filename):
     return send_from_directory(APP_DIR, filename)
 
 
-def get_universe(include_etfs=False):
-    def load(url, symbol_col):
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
-        frame = pd.read_csv(io.StringIO(response.text), sep="|")
-        frame = frame[~frame[symbol_col].astype(str).str.startswith("File Creation")]
-        if "Test Issue" in frame:
-            frame = frame[frame["Test Issue"] == "N"]
-        if not include_etfs and "ETF" in frame:
-            frame = frame[frame["ETF"] == "N"]
-        return frame[symbol_col].dropna().astype(str).tolist()
+def _screen_one(ticker):
+    response = requests.get(MIZAN_SCREEN_URL.format(ticker), timeout=20,
+                            headers={"User-Agent": "QOptionsLiquidity/1.0"})
+    response.raise_for_status()
+    report = response.json()
+    standards = {row.get("standard"): row for row in report.get("screens", [])}
+    required = ("AAOIFI", "DJIM", "SP", "MSCI")
+    business = report.get("business", {})
+    closer_look = business.get("needs_a_closer_look_under", [])
+    eligible = (
+        all(standards.get(name, {}).get("compliant") is True for name in required)
+        and not closer_look
+        and report.get("summary", {}).get("business_screen") == "pass"
+    )
+    return {"ticker": ticker, "eligible": eligible, "as_of": report.get("as_of"),
+            "company": report.get("company"), "borderline": any(standards.get(name, {}).get("borderline") for name in required)}
 
-    symbols = load(NASDAQ_URL, "Symbol") + load(OTHER_URL, "ACT Symbol")
-    symbols = [s.strip().replace(".", "-") for s in symbols]
-    symbols = [s for s in symbols if s.isascii() and "$" not in s and len(s) <= 5]
-    return sorted(set(symbols))
+
+def get_screened_watchlist():
+    now = time.time()
+    if SCREEN_CACHE["expires"] > now:
+        return SCREEN_CACHE["reports"]
+    reports, errors = [], []
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(_screen_one, ticker): ticker for ticker in POPULAR_WATCHLIST}
+        for future in as_completed(futures):
+            ticker = futures[future]
+            try:
+                reports.append(future.result())
+            except Exception as exc:
+                errors.append(f"{ticker}: {exc}")
+    if not reports:
+        raise RuntimeError("مصدر فحص التوافق الشرعي غير متاح الآن؛ لم يتم إجراء فحص الأسهم. أعيدي المحاولة لاحقًا.")
+    SCREEN_CACHE.update(expires=now + SCREEN_CACHE_SECONDS, reports=reports, failed=len(errors))
+    return reports
 
 
 def batch_metrics(tickers, window=30):
@@ -221,10 +249,15 @@ def _arabic_event_title(title):
 def events():
     riyadh = ZoneInfo("Asia/Riyadh")
     now = datetime.now(riyadh)
-    days_since_sunday = (now.weekday() + 1) % 7
-    week_start = now.date() - timedelta(days=days_since_sunday)
-    week_end = week_start + timedelta(days=6)
+    anchor_raw = request.args.get("anchor", "")
+    try:
+        anchor = date.fromisoformat(anchor_raw) if anchor_raw else now.date()
+    except ValueError:
+        return jsonify({"error": "تاريخ التقويم غير صالح."}), 400
+    week_start = anchor - timedelta(days=anchor.weekday())
+    week_end = week_start + timedelta(days=4)
     end = datetime.combine(week_end, dtime(23, 59, 59), tzinfo=riyadh)
+    start = datetime.combine(week_start, dtime.min, tzinfo=riyadh)
     candidates, successful_sources, errors = [], [], []
 
     try:
@@ -260,7 +293,7 @@ def events():
     selected, seen = [], set()
     for event in candidates:
         when = event["datetime"].astimezone(riyadh)
-        if now <= when <= end:
+        if start <= when <= end:
             key = (event["source"], event["title"], when.isoformat())
             if key in seen:
                 continue
@@ -280,15 +313,13 @@ def liquidity():
         min_dollar_vol = max(0.0, float(body.get("min_dollar_vol", 5_000_000)))
     except (TypeError, ValueError):
         return jsonify({"error": "تحققي من قيمة المركز والحد الأدنى للتداول."}), 400
-    include_etfs = bool(body.get("include_etfs", False))
     try:
-        symbols = get_universe(include_etfs)
-        rows = []
-        batch_size = 150
-        for start in range(0, len(symbols), batch_size):
-            rows.extend(batch_metrics(symbols[start:start + batch_size]))
-            if start + batch_size < len(symbols):
-                time.sleep(0.5)
+        reports = get_screened_watchlist()
+        eligible = [report for report in reports if report["eligible"] and not report["borderline"]]
+        symbols = [report["ticker"] for report in eligible]
+        if not symbols:
+            return jsonify({"error": "لم يظهر أي سهم من قائمة المتابعة مستوفيًا الشروط الأربعة حاليًا. لم تُعرض أسهم غير متحقق منها."}), 422
+        rows = batch_metrics(symbols)
         if not rows:
             return jsonify({"error": "لم تصل بيانات من مصدر الأسعار. أعيدي المحاولة لاحقًا."}), 502
         frame = pd.DataFrame(rows)
@@ -300,6 +331,12 @@ def liquidity():
         tiers = frame["tier"].value_counts().to_dict()
         return jsonify({
             "scanned": len(rows),
+            "watchlist_size": len(POPULAR_WATCHLIST),
+            "screened": len(reports),
+            "eligible": len(eligible),
+            "screen_checks_failed": SCREEN_CACHE["failed"],
+            "screen_source": "Mizan · أربعة معايير منشورة",
+            "screen_as_of": max((item.get("as_of", "") for item in eligible), default=""),
             "returned": len(result),
             "total_last_dollar_flow": float(frame["last_dollar_flow"].sum()) if len(frame) else 0,
             "tiers": tiers,
