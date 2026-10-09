@@ -4494,5 +4494,6 @@ body{
 /* يبقى سطر الانسحاب أسود في التقرير وملفات التصدير. */
 .info-table tbody tr.flat-trade td:not(.report-actions-cell),
 .info-table tbody tr.flat-trade td:not(.report-actions-cell) *{color:#000!important}
+.info-table .custom-status-cell{white-space:normal!important;overflow-wrap:anywhere!important;word-break:break-word!important}
 .distribution-segment.flat{stroke:#b6b6b6!important}
 .legend-row.flat i{background:#b6b6b6!important}

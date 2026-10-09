@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fcf8f1">
+  <title>Q Options - فاحص سيولة الأسهم</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="liquidity.css?v=1">
+</head>
+<body>
+  <main class="shell">
+    <header class="head">
+      <button class="back" onclick="location.href='index.html'">← <span>العودة للرئيسية</span></button>
+      <img src="QQ.PNG" alt="Q Options" class="logo">
+      <span class="head-spacer" aria-hidden="true"></span>
+    </header>
+
+    <section class="title">
+      <span>US STOCK LIQUIDITY</span>
+      <h1>فاحص سيولة الأسهم الأمريكية</h1>
+      <p>حدّث الفحص لعرض قيمة التداول والتدفق اليومي ومؤشرات السيولة</p>
+    </section>
+
+    <section class="controls" aria-label="إعدادات الفحص">
+      <label>حجم المركز المفترض بالدولار
+        <input id="position" type="number" min="1" step="1000" value="50000">
+      </label>
+      <label>أقل وسيط تداول يومي بالدولار
+        <select id="minDollarVol">
+          <option value="1000000" selected>١ مليون</option>
+          <option value="5000000">٥ ملايين</option>
+          <option value="10000000">١٠ ملايين</option>
+          <option value="50000000">٥٠ مليونًا</option>
+        </select>
+      </label>
+      <label class="check-label"><input id="includeEtfs" type="checkbox"> تضمين الصناديق المتداولة</label>
+      <button id="refreshBtn" class="refresh" type="button"><span>⟳</span> تحديث الفحص</button>
+      <button id="eventsBtn" class="events-button" type="button"><span>▣</span> أهم أخبار الأسبوع</button>
+    </section>
+
+    <div id="notice" class="notice" role="status">اضغطي «تحديث الفحص» لبدء فحص الأسهم الأمريكية.</div>
+
+    <section id="eventsPanel" class="events-panel" hidden>
+      <div class="events-heading"><div><h2>أهم الأخبار والبيانات الاقتصادية المجدولة</h2><p>المواعيد المتبقية من أسبوع التقويم الحالي (الأحد إلى السبت) · بتوقيت السعودية</p></div><span id="eventsUpdated"></span></div>
+      <div id="eventsList" class="events-list"><p class="events-empty">اضغطي زر «أهم أخبار الأسبوع» لجلب المواعيد.</p></div>
+      <div class="event-sources">المصادر الرسمية: <a href="https://www.bls.gov/schedule/" target="_blank" rel="noopener">مكتب إحصاءات العمل BLS</a> · <a href="https://www.bea.gov/news/schedule/" target="_blank" rel="noopener">مكتب التحليل الاقتصادي BEA</a> · <a href="https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" target="_blank" rel="noopener">الاحتياطي الفيدرالي</a></div>
+    </section>
+
+    <section class="stats" aria-label="ملخص السيولة">
+      <article><span>الأسهم المفحوصة</span><strong id="scanned">—</strong></article>
+      <article><span>تدفق التداول اليومي</span><strong id="flow">—</strong><small>إجمالي قيمة التداول في أحدث جلسة</small></article>
+      <article><span>سيولة مرتفعة</span><strong id="high">—</strong></article>
+      <article><span>سيولة متوسطة</span><strong id="medium">—</strong></article>
+      <article><span>سيولة منخفضة / ضعيفة</span><strong id="low">—</strong></article>
+      <article><span>آخر تحديث للبيانات</span><strong id="updated">—</strong></article>
+    </section>
+
+    <section class="market-pulse" aria-label="نبض مؤشرات السوق">
+      <article><span>SPY · S&amp;P 500</span><strong id="pulseSPY">—</strong></article>
+      <article><span>QQQ · ناسداك 100</span><strong id="pulseQQQ">—</strong></article>
+      <article><span>DIA · داو جونز</span><strong id="pulseDIA">—</strong></article>
+      <article><span>IWM · راسل 2000</span><strong id="pulseIWM">—</strong></article>
+    </section>
+
+    <section class="table-card">
+      <div class="table-heading">
+        <div><h2>نتائج فحص السيولة</h2><p>التدفق اليومي = سعر الإغلاق × حجم التداول لآخر جلسة متاحة.</p></div>
+        <input id="search" type="search" placeholder="ابحثي برمز السهم" aria-label="ابحثي برمز السهم">
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>السهم</th><th>التغير اليومي</th><th>الحجم النسبي</th><th>السعر</th><th>تدفق آخر جلسة</th><th>متوسط التدفق اليومي</th><th>وسيط التدفق</th><th>أيام التصفية التقديرية</th><th>التصنيف</th>
+          </tr></thead>
+          <tbody id="results"><tr><td class="empty" colspan="9">لا توجد نتائج بعد. اضغطي تحديث الفحص.</td></tr></tbody>
+        </table>
+      </div>
+      <footer id="resultCount">يعرض الفحص الأسهم التي تحقق الحد الأدنى المحدد.</footer>
+    </section>
+    <p class="disclaimer">البيانات من Yahoo Finance عبر yfinance وقد تتأخر أو تتأثر بتوفر المصدر. «التدفق» هنا قيمة التداول اليومية، وليس تدفق أوامر شراء وبيع لحظي.</p>
+  </main>
+  <script src="liquidity.js?v=1"></script>
+</body>
+</html>

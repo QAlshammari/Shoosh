@@ -198,7 +198,7 @@ function currentManualDraft(){
   return {
     symbol:$('manualSymbol')?.value||'',option:$('manualOption')?.value||'',
     strike:$('manualStrike')?.value||'',buy:$('manualBuy')?.value||'',
-    sell:$('manualSell')?.value||'',notes:$('manualNotes')?.value||'',
+    sell:$('manualSell')?.value||'',customStatus:$('manualStatus')?.value||'',notes:$('manualNotes')?.value||'',
     editIndex:manualEditIndex
   };
 }
@@ -217,7 +217,7 @@ function restoreManualDraft(){
   if(!d) return;
   $('manualSymbol').value=d.symbol||'';$('manualOption').value=d.option||'';
   $('manualStrike').value=d.strike||'';$('manualBuy').value=d.buy||'';
-  $('manualSell').value=d.sell||'';$('manualNotes').value=d.notes||'';
+  $('manualSell').value=d.sell||'';$('manualStatus').value=d.customStatus||'';$('manualNotes').value=d.notes||'';
   if(Number.isInteger(d.editIndex) && manualTrades[d.editIndex]){
     manualEditIndex=d.editIndex;
     $('manualSubmit').textContent='حفظ التعديل';
@@ -528,8 +528,9 @@ function normalizeRows(rows){
     const profit = sell === null ? 0 : (sell-buy)*100;
     const p = sell === null || !buy ? 0 : (sell-buy)/buy*100;
     const notes = pick(['notes','note','remarks','الملاحظات','ملاحظات','ملاحظة'],7) || '';
+    const customStatus = getVal(r,['status','custom status','trade status']) || '';
 
-    return {date,symbol:String(symbol).trim(),option,strike:String(strike).trim(),buy,sell,profit,pct:p,notes:String(notes).trim()};
+    return {date,symbol:String(symbol).trim(),option,strike:String(strike).trim(),buy,sell,profit,pct:p,customStatus:String(customStatus).trim(),notes:String(notes).trim()};
   }).filter(x => x.symbol !== '—' || x.date);
 }
 
@@ -659,6 +660,7 @@ function renderTable(data){
       <td dir="ltr">${t.sell===null?'—':money(t.sell).replace('$','')}</td>
       <td class="${valueClass}">${t.sell===null&&t.profit===0?'<span style="color:#b48630">مفتوحة</span>':money(t.profit)}</td>
       <td class="${valueClass}">${t.sell===null&&t.profit===0?'—':pct(t.pct)}</td>
+      <td>${escapeHtml(t.customStatus||'—')}</td>
       <td class="${valueClass}">${escapeHtml(displayTradeNote(t.notes))}</td>
     </tr>`;
   }).join('');
@@ -946,9 +948,10 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
         <td class="info-profit ${st.cls==='flat'?'flat-value':st.cls==='stopped'?'stopped-value':(t.profit>=0?'pos':'neg')}">${t.sell===null&&t.profit===0?'—':money(t.profit)}</td>
         <td class="info-pct ${st.cls==='flat'?'flat-value':st.cls==='stopped'?'stopped-value':(t.pct>=0?'pos':'neg')}">${t.sell===null&&t.profit===0?'—':pct(t.pct)}</td>
         <td><span class="info-status ${st.cls}" style="display:inline;background:transparent;border:0;border-radius:0;box-shadow:none;padding:0;font-size:27px;font-weight:900">${statusAr}</span></td>
+        <td class="custom-status-cell">${escapeHtml(t.customStatus||'—')}</td>
         ${captureId==='liveShareCapture'?`<td class="report-actions-cell" style="white-space:nowrap"><button type="button" data-report-edit="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="تعديل الصفقة" style="background:#d7a43d;color:#241608;border:1px solid #9b6a1d;border-radius:8px;padding:10px 14px;font:700 30px Cairo,Arial;cursor:pointer">✏️ تعديل</button> <button type="button" data-report-delete="${encodeURIComponent(tradeStorageSignature(t))}" aria-label="حذف الصفقة" style="background:#c83f37;color:white;border:1px solid #922720;border-radius:8px;padding:10px 14px;font:700 30px Cairo,Arial;cursor:pointer">🗑 حذف</button></td>`:''}
       </tr>`;
-  }).join('') : `<tr><td colspan="${captureId==='liveShareCapture'?9:8}">لا توجد صفقات ضمن الفترة المحددة</td></tr>`;
+  }).join('') : `<tr><td colspan="${captureId==='liveShareCapture'?10:9}">لا توجد صفقات ضمن الفترة المحددة</td></tr>`;
 
   return `
     <div class="infographic-card refined-light" id="${captureId}">
@@ -1055,7 +1058,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
           <div class="table-week-date table-head-box"><span class="week-date-icon">📅</span><span>${periodText}</span></div>
         </div>
         ${captureId==='liveShareCapture'?'<div class="report-table-scroll" style="max-width:100%;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;overscroll-behavior-x:contain;border-radius:10px"><div style="padding:5px 10px;text-align:center;color:#806637;font:600 17px Cairo,Arial">اسحبي الجدول يمينًا ويسارًا لرؤية كل الأعمدة وأزرار التعديل والحذف</div>':''}
-        <table class="info-table roomy" ${captureId==='liveShareCapture'?'style="width:2100px!important;min-width:2100px!important;max-width:none!important;table-layout:fixed!important"':''}>
+        <table class="info-table roomy" ${captureId==='liveShareCapture'?'style="width:2300px!important;min-width:2300px!important;max-width:none!important;table-layout:fixed!important"':''}>
           <thead>
             <tr>
               <th>الرمز</th>
@@ -1066,6 +1069,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
               <th>الربح</th>
               <th>النسبة</th>
               <th>الحالة</th>
+              <th>Status</th>
               ${captureId==='liveShareCapture'?'<th>الإجراءات</th>':''}
             </tr>
           </thead>
@@ -1484,7 +1488,7 @@ function renderManualTrades(){
   const body=$('manualTradesBody');
   body.innerHTML=manualTrades.map((t,i)=>{
     const status=tradeStatusMeta(t);
-    return `<tr><td>${escapeHtml(t.symbol)}</td><td>${escapeHtml(t.option)}</td><td>${escapeHtml(t.strike)}</td><td>${Number(t.buy).toFixed(2)}</td><td>${Number(t.sell).toFixed(2)}</td><td class="manual-result ${status.cls}">${money(t.profit)}</td><td class="manual-result ${status.cls}">${pct(t.pct)}</td><td><span class="manual-status ${status.cls}">${status.labelAr}</span></td><td>${escapeHtml(displayTradeNote(t.notes))}</td><td><button type="button" class="manual-edit" data-index="${i}">تعديل</button><button type="button" class="manual-delete" data-index="${i}">حذف</button></td></tr>`;
+    return `<tr><td>${escapeHtml(t.symbol)}</td><td>${escapeHtml(t.option)}</td><td>${escapeHtml(t.strike)}</td><td>${Number(t.buy).toFixed(2)}</td><td>${Number(t.sell).toFixed(2)}</td><td class="manual-result ${status.cls}">${money(t.profit)}</td><td class="manual-result ${status.cls}">${pct(t.pct)}</td><td><span class="manual-status ${status.cls}">${status.labelAr}</span></td><td>${escapeHtml(t.customStatus||'—')}</td><td>${escapeHtml(displayTradeNote(t.notes))}</td><td><button type="button" class="manual-edit" data-index="${i}">تعديل</button><button type="button" class="manual-delete" data-index="${i}">حذف</button></td></tr>`;
   }).join('');
   $('manualCount').textContent=`${manualTrades.length} صفقة`;
   $('manualEmpty').hidden=manualTrades.length>0;
@@ -1502,12 +1506,12 @@ async function exportManualTradesToExcel(){
       {header:'الشركة',key:'symbol',width:15},{header:'السترايك',key:'strike',width:13},
       {header:'سعر الشراء',key:'buy',width:15},{header:'سعر البيع',key:'sell',width:15},
       {header:'الخيار',key:'option',width:12},{header:'الربح',key:'profit',width:15},
-      {header:'النسبة',key:'pct',width:14},{header:'الحالة',key:'status',width:14},
+      {header:'النسبة',key:'pct',width:14},{header:'الحالة',key:'status',width:14},{header:'Status',key:'customStatus',width:18},
       {header:'التاريخ',key:'date',width:16},{header:'الملاحظات',key:'notes',width:25}
     ];
     manualTrades.forEach(t=>{
       const status=tradeStatusMeta(t);
-      sheet.addRow({symbol:t.symbol,strike:Number(t.strike)||t.strike,buy:Number(t.buy),sell:Number(t.sell),option:t.option,profit:Number(t.profit),pct:Number(t.pct)/100,status:status.labelAr,date:t.date||'',notes:displayTradeNote(t.notes)});
+      sheet.addRow({symbol:t.symbol,strike:Number(t.strike)||t.strike,buy:Number(t.buy),sell:Number(t.sell),option:t.option,profit:Number(t.profit),pct:Number(t.pct)/100,status:status.labelAr,customStatus:t.customStatus||'',date:t.date||'',notes:displayTradeNote(t.notes)});
     });
 
     const gold='FFD9AE55',deepGold='FF8B5A12',cream='FFFFF9ED',white='FFFFFFFF';
@@ -1533,9 +1537,9 @@ async function exportManualTradesToExcel(){
       const stateColor=state.cls==='win'?'FF238247':state.cls==='stopped'?'FF138DA4':state.cls==='loss'?'FFC43C35':'FF30261B';
       [row.getCell(6),row.getCell(7),row.getCell(8)].forEach(cell=>{cell.font={name:'Arial',size:11,bold:true,color:{argb:stateColor}}});
     }
-    sheet.autoFilter={from:'A1',to:'J1'};
+    sheet.autoFilter={from:'A1',to:'K1'};
     const weekRow=manualTrades.length+3;
-    sheet.mergeCells(`A${weekRow}:J${weekRow}`);
+    sheet.mergeCells(`A${weekRow}:K${weekRow}`);
     const weekFrom=$('fromDate').value || currentWeekRange().from;
     const weekTo=$('toDate').value || currentWeekRange().to;
     const weekCell=sheet.getCell(`A${weekRow}`);
@@ -1606,6 +1610,7 @@ function startManualEdit(index){
   $('manualStrike').value=t.strike;
   $('manualBuy').value=t.buy;
   $('manualSell').value=t.sell;
+  $('manualStatus').value=t.customStatus||'';
   $('manualNotes').value=t.notes||'';
   $('manualSubmit').textContent='حفظ التعديل';
   $('manualCancelEdit').hidden=false;
@@ -1620,7 +1625,7 @@ $('manualTradeForm').addEventListener('submit',e=>{
   e.preventDefault();
   const buy=num($('manualBuy').value),sell=num($('manualSell').value);
   const date=$('fromDate').value || currentWeekRange().from;
-  const updatedTrade={date,symbol:$('manualSymbol').value.trim().toUpperCase(),option:$('manualOption').value,strike:$('manualStrike').value,buy,sell,profit:(sell-buy)*100,pct:buy?(sell-buy)/buy*100:0,notes:$('manualNotes').value.trim()};
+  const updatedTrade={date,symbol:$('manualSymbol').value.trim().toUpperCase(),option:$('manualOption').value,strike:$('manualStrike').value,buy,sell,profit:(sell-buy)*100,pct:buy?(sell-buy)/buy*100:0,customStatus:$('manualStatus').value.trim(),notes:$('manualNotes').value.trim()};
   const wasEditing=manualEditIndex>=0;
   if(wasEditing) manualTrades[manualEditIndex]=updatedTrade;
   else manualTrades.push(updatedTrade);
@@ -1717,17 +1722,17 @@ async function exportReportTradesToExcel(){
     workbook.creator='Q Options';
     workbook.calcProperties.fullCalcOnLoad=true;
     const sheet=workbook.addWorksheet('تقرير الصفقات',{views:[{rightToLeft:true,state:'frozen',ySplit:6}],pageSetup:{orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0}});
-    sheet.columns=[16,13,14,16,16,18,16,16,17,32].map(width=>({width}));
+    sheet.columns=[16,13,14,16,16,18,16,16,18,17,32].map(width=>({width}));
     const font={name:'Cairo',size:12,bold:true,color:{argb:'FF30261B'}};
     const border={style:'thin',color:{argb:'FFD8BE87'}};
-    const band=(row,text)=>{sheet.mergeCells(`A${row}:J${row}`);const c=sheet.getCell(`A${row}`);c.value=text;c.font={...font,size:row===1?22:13};c.alignment={horizontal:'center',vertical:'middle',wrapText:true};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF2D99D'}};sheet.getRow(row).height=row===1?44:30;};
+    const band=(row,text)=>{sheet.mergeCells(`A${row}:K${row}`);const c=sheet.getCell(`A${row}`);c.value=text;c.font={...font,size:row===1?22:13};c.alignment={horizontal:'center',vertical:'middle',wrapText:true};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF2D99D'}};sheet.getRow(row).height=row===1?44:30;};
     band(1,'Q OPTIONS — تقرير الصفقات');
     band(2,`الفترة: ${$('fromDate').value||'—'} → ${$('toDate').value||'—'}`);
     sheet.getCell('A4').value='الأرباح';
     sheet.mergeCells('B4:C4');
     sheet.getCell('E4').value='عدد الصفقات';sheet.getCell('F4').value=rows.length;
     sheet.getRow(4).height=34;
-    const headers=['الرمز','الخيار','السترايك','سعر الشراء','سعر البيع','الربح','النسبة','الحالة','التاريخ','الملاحظات'];
+    const headers=['الرمز','الخيار','السترايك','سعر الشراء','سعر البيع','الربح','النسبة','الحالة','Status','التاريخ','الملاحظات'];
     headers.forEach((h,i)=>sheet.getCell(6,i+1).value=h);
     sheet.getRow(6).height=34;
     rows.forEach((t,i)=>{
@@ -1739,16 +1744,16 @@ async function exportReportTradesToExcel(){
         {formula:`IF(OR(D${n}="",E${n}=""),"",(E${n}-D${n})*100)`,result:open?'':profit},
         {formula:`IF(OR(D${n}="",D${n}=0,E${n}=""),"",(E${n}-D${n})/D${n})`,result:open||!buy?'':(sell-buy)/buy},
         {formula:`IF(E${n}="","مفتوحة",IF(E${n}>D${n},"ربح",IF(AND(E${n}=0,D${n}>0),"خسارة",IF(E${n}<D${n},"موقوفة","انسحاب"))))`,result:({win:"ربح",loss:"خسارة",stopped:"موقوفة",open:"مفتوحة",flat:"انسحاب"})[tradeOutcome(t)]},
-        /^\d{4}-\d{2}-\d{2}$/.test(t.date||'')?new Date(t.date+'T00:00:00Z'):t.date||'',String(t.notes||'')];
+        String(t.customStatus||''),/^\d{4}-\d{2}-\d{2}$/.test(t.date||'')?new Date(t.date+'T00:00:00Z'):t.date||'',String(t.notes||'')];
       row.height=32;
-      for(let c=1;c<=10;c++){
+      for(let c=1;c<=11;c++){
         const cell=row.getCell(c);
         cell.font={...font};cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
         cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:i%2?'FFF7F0E5':'FFFFFFFF'}};
         cell.border={top:border,bottom:border,left:border,right:border};
       }
       [4,5,6].forEach(c=>row.getCell(c).numFmt='"$"#,##0.00;−"$"#,##0.00');
-      row.getCell(7).numFmt='0.00%;−0.00%';row.getCell(9).numFmt='yyyy-mm-dd';
+      row.getCell(7).numFmt='0.00%;−0.00%';row.getCell(10).numFmt='yyyy-mm-dd';
     });
     const end=rows.length+6;
     sheet.getCell('B4').value={formula:`SUM(F7:F${end})`,result:rows.reduce((sum,t)=>sum+(tradeOutcome(t)==='open'?0:((Number(t.sell)||0)-(Number(t.buy)||0))*100),0)};
@@ -1757,7 +1762,7 @@ async function exportReportTradesToExcel(){
     for(const [label,color] of [['ربح','FF238247'],['موقوفة','FF138DA4'],['خسارة','FFC43C35'],['مفتوحة','FFB48630']]){
       sheet.addConditionalFormatting({ref:`F7:H${end}`,rules:[{type:'expression',formulae:[`$H7="${label}"`],style:{font:{color:{argb:color},bold:true}}}]});
     }
-    sheet.autoFilter=`A6:J${end}`;
+    sheet.autoFilter=`A6:K${end}`;
     sheet.pageSetup.printTitlesRow='1:6';
     band(end+2,'الأرباح لكل عقد = (سعر البيع − سعر الشراء) × 100. إجمالي الأرباح يشمل خصم الخسائر.');
     const buffer=await workbook.xlsx.writeBuffer();
@@ -1809,14 +1814,14 @@ function openReportTradeEditor(trade){
   const overlay=document.createElement('div');overlay.id='reportTradeEditor';
   overlay.style.cssText='position:fixed;inset:0;z-index:100000;background:#0008;display:grid;place-items:center;padding:16px;direction:rtl';
   overlay.innerHTML=`<form style="background:#fff9ed;color:#382b20;border:2px solid #cfaa62;border-radius:18px;padding:22px;width:min(440px,100%);max-height:85vh;overflow:auto;font-family:Cairo,Arial"><h3>تعديل الصفقة</h3>${[
-    ['symbol','الرمز','text'],['strike','السترايك','text'],['buy','سعر الشراء','number'],['sell','سعر البيع (فارغ للمفتوحة)','number'],['date','التاريخ','date'],['notes','الملاحظات','text']
-  ].map(([key,label,type])=>`<label style="display:block;margin:10px 0">${label}<input name="${key}" type="${type}" ${type==='number'?'step="any" min="0"':''} ${key==='symbol'||key==='buy'?'required':''} value="${escapeHtml(trade[key]??'')}" style="display:block;box-sizing:border-box;width:100%;padding:10px;font:inherit"></label>`).join('')}<label>الخيار<select name="option" style="display:block;width:100%;padding:10px;font:inherit"><option value="Call">Call</option><option value="Put">Put</option></select></label><div style="display:flex;gap:12px;margin-top:18px"><button type="submit">حفظ التعديل</button><button type="button" id="reportEditCancel">إلغاء</button></div></form>`;
+    ['symbol','الرمز','text'],['strike','السترايك','text'],['buy','سعر الشراء','number'],['sell','سعر البيع (فارغ للمفتوحة)','number'],['date','التاريخ','date'],['status','Status','text'],['notes','الملاحظات','text']
+  ].map(([key,label,type])=>`<label style="display:block;margin:10px 0">${label}<input name="${key}" type="${type}" ${type==='number'?'step="any" min="0"':''} ${key==='symbol'||key==='buy'?'required':''} value="${escapeHtml(key==='status'?trade.customStatus??'':trade[key]??'')}" style="display:block;box-sizing:border-box;width:100%;padding:10px;font:inherit"></label>`).join('')}<label>الخيار<select name="option" style="display:block;width:100%;padding:10px;font:inherit"><option value="Call">Call</option><option value="Put">Put</option></select></label><div style="display:flex;gap:12px;margin-top:18px"><button type="submit">حفظ التعديل</button><button type="button" id="reportEditCancel">إلغاء</button></div></form>`;
   document.body.appendChild(overlay);
   const form=overlay.querySelector('form');form.elements.option.value=String(trade.option||'').toLowerCase()==='put'?'Put':'Call';
   overlay.querySelector('#reportEditCancel').onclick=()=>overlay.remove();
   form.onsubmit=e=>{
     e.preventDefault();const fields=new FormData(form),buy=Number(fields.get('buy')),rawSell=String(fields.get('sell')).trim(),sell=rawSell===''?null:Number(rawSell);
-    const updated={...trade,symbol:String(fields.get('symbol')).trim().toUpperCase(),strike:String(fields.get('strike')).trim(),buy,sell,date:String(fields.get('date')),option:String(fields.get('option')),notes:String(fields.get('notes')),profit:sell===null?0:(sell-buy)*100,pct:sell===null||!buy?0:(sell-buy)/buy*100};
+    const updated={...trade,symbol:String(fields.get('symbol')).trim().toUpperCase(),strike:String(fields.get('strike')).trim(),buy,sell,date:String(fields.get('date')),option:String(fields.get('option')),customStatus:String(fields.get('status')||'').trim(),notes:String(fields.get('notes')),profit:sell===null?0:(sell-buy)*100,pct:sell===null||!buy?0:(sell-buy)/buy*100};
     commitReportTradeChange(trade,updated);overlay.remove();showToast('تم حفظ التعديل وتحديث الأرباح');
   };
 }

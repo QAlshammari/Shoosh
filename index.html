@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="Style.css?v=REPORT-10-FLAT">
+  <link rel="stylesheet" href="Style.css?v=REPORT-10-FLAT-STATUS-1">
   <link rel="stylesheet" href="Home-actions-layout.css?v=1">
 </head>
 <body data-qoptions-build="FIXED-MOBILE-COLOR-CAPTURE">
@@ -70,9 +70,9 @@
           <span class="action-text"><b>إصدار التقرير وحفظه</b><small>عرض / تصدير للجمهور</small></span>
         </button>
 
-        <button class="action-btn action-subscribers" type="button" onclick="window.location.href='subscribers.html'">
-          <span class="action-icon">♙</span>
-          <span class="action-text"><b>إدارة المشتركين</b><small>المشتركون والتجديدات</small></span>
+        <button class="action-btn action-subscribers" type="button" onclick="window.location.href='liquidity.html'">
+          <span class="action-icon">↗</span>
+          <span class="action-text"><b>فاحص سيولة الأسهم</b><small>التدفق اليومي بالدولار</small></span>
         </button>
       </div>
 
@@ -182,7 +182,7 @@
           <table>
             <thead>
               <tr>
-                <th>#</th><th>اسم الشركة</th><th>الاسترايك</th><th>سعر الشراء</th><th>سعر البيع</th><th>الربح</th><th>النسبة</th><th>الملاحظات</th>
+                <th>#</th><th>اسم الشركة</th><th>الاسترايك</th><th>سعر الشراء</th><th>سعر البيع</th><th>الربح</th><th>النسبة</th><th>Status</th><th>الملاحظات</th>
               </tr>
             </thead>
             <tbody id="tradesBody"></tbody>
@@ -216,6 +216,7 @@
           <label class="manual-field"><span>سعر الدخول</span><input id="manualBuy" type="number" inputmode="decimal" step="any" min="0" placeholder="سعر الدخول" required></label>
           <label class="manual-field"><span>سعر الخروج</span><input id="manualSell" type="number" inputmode="decimal" step="any" min="0" placeholder="سعر الخروج" required></label>
         </div>
+        <label class="manual-field manual-wide"><span>Status</span><input id="manualStatus" type="text" placeholder="أدخلي الحالة" autocomplete="off"></label>
         <label class="manual-field manual-wide"><span>ملاحظات</span><input id="manualNotes" type="text" placeholder="ملاحظة قصيرة" autocomplete="off"></label>
         <button id="manualSubmit" class="manual-add" type="submit">إضافة الصفقة</button>
         <button id="manualCancelEdit" class="manual-cancel-edit" type="button" hidden>إلغاء التعديل</button>
@@ -224,7 +225,7 @@
       <section class="manual-list-card">
         <div class="manual-list-title"><h3>صفقات هذا الأسبوع</h3><span id="manualCount">0 صفقة</span></div>
         <div class="manual-table-scroll">
-          <table><thead><tr><th>الشركة</th><th>الأوبشن</th><th>السترايك</th><th>الدخول</th><th>الخروج</th><th>الربح</th><th>النسبة</th><th>الحالة</th><th>الملاحظات</th><th></th></tr></thead><tbody id="manualTradesBody"></tbody></table>
+          <table><thead><tr><th>الشركة</th><th>الأوبشن</th><th>السترايك</th><th>الدخول</th><th>الخروج</th><th>الربح</th><th>النسبة</th><th>الحالة</th><th>Status</th><th>الملاحظات</th><th></th></tr></thead><tbody id="manualTradesBody"></tbody></table>
         </div>
         <div id="manualEmpty" class="manual-empty">لم تتم إضافة صفقات بعد</div>
       </section>
@@ -261,6 +262,6 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-database-compat.js"></script>
-  <script src="Script.js?v=REPORT-7-FLAT"></script>
+  <script src="Script.js?v=REPORT-7-FLAT-STATUS-1"></script>
 </body>
 </html>
