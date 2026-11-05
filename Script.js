@@ -10,7 +10,6 @@ const REPORT_WIDTH = 1600;
 const SAVED_RANGE_KEY = 'qOptionsSelectedReportRange';
 const SUCCESSFUL_RECOMMENDATIONS_KEY = 'qOptionsSuccessfulRecommendations';
 const RECOMMENDATIONS_BY_WEEK_KEY = 'qOptionsRecommendationsByWeekV1';
-const PENDING_RECOMMENDATION_CHANGES_KEY = 'qOptionsPendingRecommendationChangesV1';
 const MANUAL_WEEKS_KEY = 'qOptionsManualTradesByWeekV1';
 const EXCEL_RANGES_KEY = 'qOptionsExcelTradesByRangeV1';
 const MANUAL_DRAFTS_KEY = 'qOptionsManualDraftsByWeekV1';
@@ -59,46 +58,14 @@ function scheduleCloudSave(){
   },120);
 }
 function scheduleRecommendationCloudSave(weekKey,record){
-  queueRecommendationCloudChange({operation:'upsert',weekKey,id:String(record.id),record,updatedAt:Number(record.editedAt||record.savedAt)||Date.now()});
-}
-function scheduleRecommendationCloudUpdate(weekKey,record){
-  queueRecommendationCloudChange({operation:'upsert',weekKey,id:String(record.id),record,updatedAt:Number(record.editedAt||record.savedAt)||Date.now()});
-}
-function scheduleRecommendationCloudDelete(weekKey,id){
-  queueRecommendationCloudChange({operation:'delete',weekKey,id:String(id),updatedAt:Date.now()});
-}
-function readPendingRecommendationChanges(){
-  try{return JSON.parse(localStorage.getItem(PENDING_RECOMMENDATION_CHANGES_KEY)||'{}')||{}}catch(_e){return {}}
-}
-function queueRecommendationCloudChange(change){
-  const pending=readPendingRecommendationChanges();
-  const key=`${change.weekKey}|${change.id}`;
-  const queued={...change,mutationId:`${Date.now()}-${Math.random().toString(36).slice(2,8)}`};
-  pending[key]=queued;localStorage.setItem(PENDING_RECOMMENDATION_CHANGES_KEY,JSON.stringify(pending));
-  persistRecommendationCloudChange(queued);
-}
-function persistRecommendationCloudChange(change){
   if(!cloudReady||!cloudRootRef)return;
-  cloudRootRef.child('recommendationsByWeek').child(change.weekKey).transaction(current=>{
+  cloudRootRef.child('recommendationsByWeek').child(weekKey).transaction(current=>{
     const items=Array.isArray(current)?current:Object.values(current||{});
-    const index=items.findIndex(item=>String(item?.id||'')===String(change.id));
-    const currentVersion=index<0?0:Number(items[index]?.editedAt||items[index]?.savedAt)||0;
-    if(change.operation==='delete'){
-      if(index<0||currentVersion>change.updatedAt)return items;
-      return items.filter(item=>String(item?.id||'')!==String(change.id));
-    }
-    if(index<0)return [...items,change.record];
-    const changeVersion=Number(change.record?.editedAt||change.record?.savedAt)||change.updatedAt;
-    if(currentVersion>changeVersion)return items;
-    const next=[...items];next[index]=change.record;return next;
+    if(items.some(item=>item?.id===record.id))return items;
+    return [...items,record];
   },error=>{
-    if(error){console.error('Firebase recommendation sync failed',error);showToast('حُفظ التوجيه محليًا وستتم إعادة مزامنته عند عودة الاتصال');return}
-    const pending=readPendingRecommendationChanges(),key=`${change.weekKey}|${change.id}`;
-    if(pending[key]?.mutationId===change.mutationId){delete pending[key];localStorage.setItem(PENDING_RECOMMENDATION_CHANGES_KEY,JSON.stringify(pending))}
+    if(error){console.error('Firebase recommendation save failed',error);showToast('حُفظ التوجيه محليًا وتعذرت مزامنته الآن')}
   });
-}
-function flushPendingRecommendationChanges(){
-  Object.values(readPendingRecommendationChanges()).forEach(persistRecommendationCloudChange);
 }
 
 function mergeStoredRanges(first,second){
@@ -144,10 +111,7 @@ async function initSharedCloud(){
     const remote=firstSnapshot.val()||{};
     // أول جهاز فقط ينقل التخزين المحلي القديم إلى السحابة. بعد تهيئة
     // القاعدة تصبح السحابة هي المرجع، حتى لا يعيد جهاز قديم صفقات محذوفة.
-    // Once shared storage is initialized, its contents are authoritative. Only
-    // queued local mutations are replayed, so a stale device cannot revive a
-    // recommendation that was already deleted in the cloud.
-    const mergedRecommendations=remote.initialized?normalizeRecommendationStore(remote.recommendationsByWeek):mergeRecommendationStores(remote.recommendationsByWeek,readRecommendationsByWeek());
+    const mergedRecommendations=mergeRecommendationStores(remote.recommendationsByWeek,readRecommendationsByWeek());
     const initialState=remote.initialized ? {...remote,recommendationsByWeek:mergedRecommendations} : {
       initialized:true,
       manualWeeks:mergeStoredRanges(remote.manualWeeks,readManualWeeks()),
@@ -159,8 +123,6 @@ async function initSharedCloud(){
     if(!remote.initialized) await cloudRootRef.set(initialState);
     else if(stableStoreText(normalizeRecommendationStore(remote.recommendationsByWeek))!==stableStoreText(initialState.recommendationsByWeek)) await cloudRootRef.update({recommendationsByWeek:initialState.recommendationsByWeek,updatedAt:Date.now()});
     cloudReady=true;
-    flushPendingRecommendationChanges();
-    firebase.database().ref('.info/connected').on('value',snapshot=>{if(snapshot.val()===true)flushPendingRecommendationChanges()});
     cloudRootRef.on('value',snapshot=>{
       const data=snapshot.val();
       if(data) applyCloudStores(data);
@@ -993,7 +955,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
     String(a.symbol).localeCompare(String(b.symbol))
   );
   const periodText=`${$('fromDate').value || '—'}  →  ${$('toDate').value || '—'}`;
-  const recommendationsBlock=recommendationMarkup(readSuccessfulRecommendations(),captureId==='liveShareCapture');
+  const recommendationsBlock=recommendationMarkup(readSuccessfulRecommendations());
   const winPct = s.counted.length ? (s.wins.length / s.counted.length * 100) : 0;
   const stoppedCount = s.stopped.length;
   const flatCount = s.counted.filter(t=>tradeOutcome(t)==='flat').length;
@@ -1332,7 +1294,6 @@ function showLivePreview(){
 }
 
 function hidePreview(){
-  editingRecommendationId='';
   const modal=$('previewModal');
   const content=$('previewContent');
   if(modal) modal.hidden=true;
@@ -1354,98 +1315,48 @@ function readSuccessfulRecommendations(){
       if(!item||!String(item.symbol||'').trim()||!['CALL','PUT'].includes(String(item.option||'').toUpperCase()))return;
       const itemDate=String(item.date||'');
       if(/^\d{4}-\d{2}-\d{2}$/.test(itemDate)&&(itemDate<selectedFrom||itemDate>selectedTo))return;
-      items.push({id:String(item.id||''),weekKey:key,symbol:String(item.symbol).trim().toUpperCase(),option:String(item.option).toUpperCase(),savedAt:Number(item.savedAt)||0});
+      items.push({symbol:String(item.symbol).trim().toUpperCase(),option:String(item.option).toUpperCase(),savedAt:Number(item.savedAt)||0});
     });
   });
   return items.sort((a,b)=>a.savedAt-b.savedAt);
 }
-function recommendationMarkup(items,editable=false){
-  if(!items.length&&!editable)return '';
-  const label=items.length===1?'توجيه ناجح':'توجيهات ناجحة';
-  const cards=items.map((item,index)=>{const editing=editable&&recommendationManagementMode==='edit';const deleting=editable&&recommendationManagementMode==='delete';return `<li class="successful-rec-card${editing?' is-editing':''}${deleting?' is-deleting':''}" data-rec-card="${escapeHtml(item.id)}"><span class="recommendation-index">${String(index+1).padStart(2,'0')}</span>${editing?`<input class="recommendation-inline-symbol" data-rec-symbol value="${escapeHtml(item.symbol)}" aria-label="رمز الشركة" dir="ltr"><select class="recommendation-inline-option" data-rec-option aria-label="نوع الخيار"><option value="CALL" ${item.option==='CALL'?'selected':''}>CALL</option><option value="PUT" ${item.option==='PUT'?'selected':''}>PUT</option></select>`:`<bdi class="recommendation-symbol" dir="ltr">${escapeHtml(item.symbol)}</bdi><span class="recommendation-option-badge recommendation-${item.option.toLowerCase()}"><i aria-hidden="true">${item.option==='CALL'?'↗':'↘'}</i>${item.option}</span>`}${deleting&&item.id?`<button type="button" class="recommendation-remove" data-rec-delete="${escapeHtml(item.id)}" aria-label="حذف ${escapeHtml(item.symbol)}" title="حذف التوجيه">×</button>`:''}</li>`}).join('');
-  const editor=editable?`<div class="successful-rec-editor" aria-labelledby="successfulRecTitle"><div class="successful-rec-editor-head"><div class="successful-rec-editor-icon" aria-hidden="true">✦</div><div><h4 id="successfulRecTitle">إدخال توجيه ناجح</h4><p>أضيفي الرمز واختاري Call أو Put.</p></div></div><div class="recommendation-input-row"><label><span>الشركة</span><input id="recommendationSymbol" type="text" dir="ltr" autocomplete="off" placeholder="مثال: QQQ"></label><label><span>الخيار</span><select id="recommendationOption" dir="ltr"><option value="">اختاري</option><option value="CALL">Call</option><option value="PUT">Put</option></select></label></div><div class="recommendation-save-actions"><button type="button" id="saveAndAddRecommendation">حفظ وإدخال جديد</button><button type="button" id="cancelRecommendationEdit" hidden>إلغاء التعديل</button></div></div>`:'';
-  const actions=!editable||!items.length?'':recommendationManagementMode==='edit'?`<div class="successful-rec-management"><button type="button" class="rec-manage-save" data-rec-save-all>حفظ التعديلات</button><button type="button" data-rec-manage-cancel>إلغاء</button></div>`:recommendationManagementMode==='delete'?`<div class="successful-rec-management"><button type="button" data-rec-manage-cancel>إنهاء الحذف</button></div>`:`<div class="successful-rec-management"><button type="button" data-rec-manage-edit>تعديل</button><button type="button" class="rec-manage-delete" data-rec-manage-delete>حذف</button></div>`;
-  return `<section class="successful-recommendations" aria-label="التوجيهات الناجحة"><header class="successful-rec-heading"><div class="successful-rec-emblem" aria-hidden="true">✦</div><div class="successful-rec-heading-copy"><small>WEEKLY GUIDANCE</small><h3>التوجيهات الناجحة</h3></div>${actions}<span class="successful-rec-count">${items.length} ${label}</span></header>${items.length?`<ul>${cards}</ul>`:`<div class="recommendation-empty">لا توجد توجيهات محفوظة لهذه الفترة</div>`}${editor}</section>`;
+function recommendationMarkup(items){
+  if(!items.length)return '';
+  return `<section class="successful-recommendations"><h3><span class="recommendation-target" aria-hidden="true">◎</span> التوجيهات الناجحة</h3><ul>${items.map(item=>`<li><span class="recommendation-check" aria-hidden="true">✓</span><bdi dir="ltr">${escapeHtml(item.symbol)} – <span class="recommendation-${item.option.toLowerCase()}">${item.option}</span></bdi></li>`).join('')}</ul></section>`;
 }
 function updateReportRecommendationsIn(root){
   const card=root?.querySelector?.('.infographic-card');if(!card)return;
   const old=card.querySelector('.successful-recommendations');
-  const editingState=[...card.querySelectorAll('.successful-rec-card.is-editing')].map(currentEditor=>({id:currentEditor.dataset.recCard,symbol:currentEditor.querySelector('[data-rec-symbol]')?.value||'',option:currentEditor.querySelector('[data-rec-option]')?.value||''}));
-  const markup=recommendationMarkup(readSuccessfulRecommendations(),true);
-  if(old && old.outerHTML===markup)return;
-  if(old)old.outerHTML=markup;
-  else card.querySelector('.infographic-table-panel')?.insertAdjacentHTML('afterend',markup);
-  editingState.forEach(state=>{const stillExists=findRecommendation(readRecommendationsByWeek(),state.id);if(stillExists){const liveCard=card.querySelector(`.successful-rec-card[data-rec-card="${CSS.escape(state.id)}"]`);if(liveCard){liveCard.querySelector('[data-rec-symbol]').value=state.symbol;liveCard.querySelector('[data-rec-option]').value=state.option}}});
-  if(!$('previewModal')?.hidden)requestAnimationFrame(()=>requestAnimationFrame(fitLivePreview));
+  const markup=recommendationMarkup(readSuccessfulRecommendations());
+  if(old){if(markup)old.outerHTML=markup;else old.remove()}
+  else if(markup)card.querySelector('.infographic-table-panel')?.insertAdjacentHTML('afterend',markup);
+  if(!$('previewModal')?.hidden)fitLivePreview();
 }
-function openTopTradesPreview(){editingRecommendationId='';recommendationManagementMode='';showLivePreview();showToast('تم فتح التقرير للمعاينة')}
-let editingRecommendationId='';
-let recommendationManagementMode='';
-function saveAllRecommendationEdits(){
-  const cards=[...($('previewContent')?.querySelectorAll('.successful-rec-card')||[])];
-  const updates=cards.map(card=>({id:card.dataset.recCard,symbol:card.querySelector('[data-rec-symbol]')?.value.trim().toUpperCase()||'',option:card.querySelector('[data-rec-option]')?.value||''}));
-  if(updates.some(item=>!item.symbol||!['CALL','PUT'].includes(item.option))){showToast('راجعي رموز الشركات ونوع الخيار في جميع التوجيهات');return}
-  const byWeek=readRecommendationsByWeek(),changed=[];
-  for(const item of updates){const found=findRecommendation(byWeek,item.id);if(!found)continue;const updated={...found.record,symbol:item.symbol,option:item.option,editedAt:Date.now()};byWeek[found.key][found.index]=updated;changed.push({key:found.key,record:updated})}
-  writeRecommendationsByWeek(byWeek,{sync:false});changed.forEach(({key,record})=>scheduleRecommendationCloudUpdate(key,record));
-  recommendationManagementMode='';updateReportRecommendationsIn($('previewContent'));showToast('تم حفظ تعديلات التوجيهات');
+function openTopTradesPreview(){
+  $('recommendationSymbol').value='';
+  $('recommendationOption').value='';
+  showLivePreview();
+  showToast('تم فتح التقرير للمعاينة');
 }
-function resetRecommendationEditor(){
-  editingRecommendationId='';
-  const symbol=$('recommendationSymbol'),option=$('recommendationOption'),save=$('saveAndAddRecommendation'),cancel=$('cancelRecommendationEdit');
-  if(symbol)symbol.value='';if(option)option.value='';
-  if(save)save.textContent='حفظ وإدخال جديد';if(cancel)cancel.hidden=true;
-}
-function findRecommendation(byWeek,id){
-  for(const [key,items] of Object.entries(byWeek||{})){const index=(Array.isArray(items)?items:[]).findIndex(item=>String(item?.id||'')===String(id));if(index>=0)return{key,index,record:items[index]}}
-  return null;
-}
-function beginRecommendationEdit(id){
-  const found=findRecommendation(readRecommendationsByWeek(),id);if(!found)return;
-  editingRecommendationId=id;updateReportRecommendationsIn($('previewContent'));
-  $('previewContent')?.querySelector('.successful-rec-card.is-editing .recommendation-inline-symbol')?.focus();
-}
-function saveInlineRecommendationEdit(id){
-  const card=$('previewContent')?.querySelector('.successful-rec-card.is-editing');if(!card)return;
-  const symbol=card.querySelector('[data-rec-symbol]')?.value.trim().toUpperCase()||'',option=card.querySelector('[data-rec-option]')?.value||'';
-  if(!symbol||!['CALL','PUT'].includes(option)){showToast('أدخلي رمز الشركة واختاري Call أو Put');return}
-  const byWeek=readRecommendationsByWeek(),found=findRecommendation(byWeek,id);if(!found)return;
-  const updated={...found.record,symbol,option,editedAt:Date.now()};byWeek[found.key][found.index]=updated;
-  writeRecommendationsByWeek(byWeek,{sync:false});scheduleRecommendationCloudUpdate(found.key,updated);
-  editingRecommendationId='';updateReportRecommendationsIn($('previewContent'));showToast('تم تحديث التوجيه');
-}
-function saveRecommendationFromEditor(){
-  const symbol=$('recommendationSymbol')?.value.trim().toUpperCase()||'',option=$('recommendationOption')?.value||'';
+$('saveAndAddRecommendation')?.addEventListener('click',()=>{
+  const symbol=$('recommendationSymbol').value.trim().toUpperCase();
+  const option=$('recommendationOption').value;
   if(!symbol||!['CALL','PUT'].includes(option)){showToast('اكتبي الشركة واختاري Call أو Put');return}
   const byWeek=readRecommendationsByWeek();
-  if(editingRecommendationId){
-    const found=findRecommendation(byWeek,editingRecommendationId);if(!found){resetRecommendationEditor();showToast('لم يعد التوجيه موجودًا');return}
-    const updated={...found.record,symbol,option,editedAt:Date.now()};byWeek[found.key][found.index]=updated;
-    writeRecommendationsByWeek(byWeek,{sync:false});scheduleRecommendationCloudUpdate(found.key,updated);
-    resetRecommendationEditor();updateReportRecommendationsIn($('previewContent'));$('recommendationSymbol')?.focus();showToast('تم تحديث التوجيه');return;
-  }
-  const key=selectedWeekKey();byWeek[key]=Array.isArray(byWeek[key])?byWeek[key]:[];
+  const key=selectedWeekKey();
+  byWeek[key]=Array.isArray(byWeek[key])?byWeek[key]:[];
   const selectedFrom=$('fromDate').value||currentWeekRange().from,selectedTo=$('toDate').value||currentWeekRange().to;
-  const today=toISO(new Date()),entryDate=today>=selectedFrom&&today<=selectedTo?today:selectedFrom;
+  const today=toISO(new Date());
+  const entryDate=today>=selectedFrom&&today<=selectedTo?today:selectedFrom;
   const record={id:`${Date.now()}-${Math.random().toString(36).slice(2,8)}`,symbol,option,savedAt:Date.now(),date:entryDate};
-  byWeek[key].push(record);writeRecommendationsByWeek(byWeek,{sync:false});scheduleRecommendationCloudSave(key,record);
-  resetRecommendationEditor();updateReportRecommendationsIn($('previewContent'));$('recommendationSymbol')?.focus();showToast('تم حفظ التوجيه؛ أدخلي التالي');
-}
-function deleteRecommendation(id){
-  const byWeek=readRecommendationsByWeek(),found=findRecommendation(byWeek,id);if(!found)return;
-  if(!confirm(`حذف التوجيه ${found.record.symbol} ${found.record.option}؟`))return;
-  byWeek[found.key]=byWeek[found.key].filter(item=>String(item?.id||'')!==String(id));if(!byWeek[found.key].length)delete byWeek[found.key];
-  writeRecommendationsByWeek(byWeek,{sync:false});scheduleRecommendationCloudDelete(found.key,id);
-  if(editingRecommendationId===id)resetRecommendationEditor();updateReportRecommendationsIn($('previewContent'));showToast('تم حذف التوجيه');
-}
-$('previewContent')?.addEventListener('click',e=>{
-  if(e.target.closest('[data-rec-manage-edit]')){recommendationManagementMode='edit';updateReportRecommendationsIn($('previewContent'));return}
-  if(e.target.closest('[data-rec-manage-delete]')){recommendationManagementMode='delete';updateReportRecommendationsIn($('previewContent'));return}
-  if(e.target.closest('[data-rec-manage-cancel]')){recommendationManagementMode='';updateReportRecommendationsIn($('previewContent'));return}
-  if(e.target.closest('[data-rec-save-all]')){saveAllRecommendationEdits();return}
-  const remove=e.target.closest('[data-rec-delete]');if(remove){deleteRecommendation(remove.dataset.recDelete);return}
-  if(e.target.closest('#saveAndAddRecommendation')){saveRecommendationFromEditor();return}
-  if(e.target.closest('#cancelRecommendationEdit'))resetRecommendationEditor();
+  byWeek[key].push(record);
+  writeRecommendationsByWeek(byWeek,{sync:false});
+  scheduleRecommendationCloudSave(key,record);
+  $('recommendationSymbol').value='';
+  $('recommendationOption').value='';
+  updateReportRecommendationsIn($('previewContent'));
+  $('recommendationSymbol').focus();
+  showToast('تم حفظ التوجيه؛ أدخلي التالي');
 });
 
 
