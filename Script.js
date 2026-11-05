@@ -67,21 +67,6 @@ function scheduleRecommendationCloudSave(weekKey,record){
     if(error){console.error('Firebase recommendation save failed',error);showToast('حُفظ التوجيه محليًا وتعذرت مزامنته الآن')}
   });
 }
-function scheduleRecommendationCloudUpdate(weekKey,record){
-  if(!cloudReady||!cloudRootRef)return;
-  cloudRootRef.child('recommendationsByWeek').child(weekKey).transaction(current=>{
-    const items=Array.isArray(current)?current:Object.values(current||{}),index=items.findIndex(item=>item?.id===record.id);
-    if(index<0)return items;
-    const next=[...items];next[index]=record;return next;
-  },error=>{if(error){console.error('Firebase recommendation update failed',error);showToast('حُفظ التعديل محليًا وتعذرت مزامنته الآن')}});
-}
-function scheduleRecommendationCloudDelete(weekKey,id){
-  if(!cloudReady||!cloudRootRef)return;
-  cloudRootRef.child('recommendationsByWeek').child(weekKey).transaction(current=>{
-    const items=Array.isArray(current)?current:Object.values(current||{});
-    return items.filter(item=>String(item?.id||'')!==String(id));
-  },error=>{if(error){console.error('Firebase recommendation delete failed',error);showToast('حُذف محليًا وتعذرت مزامنة الحذف الآن')}});
-}
 
 function mergeStoredRanges(first,second){
   const result={};
@@ -970,7 +955,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
     String(a.symbol).localeCompare(String(b.symbol))
   );
   const periodText=`${$('fromDate').value || '—'}  →  ${$('toDate').value || '—'}`;
-  const recommendationsBlock=recommendationMarkup(readSuccessfulRecommendations(),captureId==='liveShareCapture');
+  const recommendationsBlock=recommendationMarkup(readSuccessfulRecommendations());
   const winPct = s.counted.length ? (s.wins.length / s.counted.length * 100) : 0;
   const stoppedCount = s.stopped.length;
   const flatCount = s.counted.filter(t=>tradeOutcome(t)==='flat').length;
@@ -1309,7 +1294,6 @@ function showLivePreview(){
 }
 
 function hidePreview(){
-  editingRecommendationId='';
   const modal=$('previewModal');
   const content=$('previewContent');
   if(modal) modal.hidden=true;
@@ -1331,80 +1315,48 @@ function readSuccessfulRecommendations(){
       if(!item||!String(item.symbol||'').trim()||!['CALL','PUT'].includes(String(item.option||'').toUpperCase()))return;
       const itemDate=String(item.date||'');
       if(/^\d{4}-\d{2}-\d{2}$/.test(itemDate)&&(itemDate<selectedFrom||itemDate>selectedTo))return;
-      items.push({id:String(item.id||''),weekKey:key,symbol:String(item.symbol).trim().toUpperCase(),option:String(item.option).toUpperCase(),savedAt:Number(item.savedAt)||0});
+      items.push({symbol:String(item.symbol).trim().toUpperCase(),option:String(item.option).toUpperCase(),savedAt:Number(item.savedAt)||0});
     });
   });
   return items.sort((a,b)=>a.savedAt-b.savedAt);
 }
-function recommendationMarkup(items,editable=false){
-  if(!items.length&&!editable)return '';
-  const label=items.length===1?'توجيه ناجح':'توجيهات ناجحة';
-  const cards=items.map((item,index)=>`<li class="successful-rec-card"><span class="recommendation-index">${String(index+1).padStart(2,'0')}</span><bdi class="recommendation-symbol" dir="ltr">${escapeHtml(item.symbol)}</bdi><span class="recommendation-option-badge recommendation-${item.option.toLowerCase()}"><i aria-hidden="true">${item.option==='CALL'?'↗':'↘'}</i>${item.option}</span>${editable&&item.id?`<span class="recommendation-card-actions"><button type="button" data-rec-edit="${escapeHtml(item.id)}">تعديل</button><button type="button" class="delete" data-rec-delete="${escapeHtml(item.id)}">حذف</button></span>`:''}</li>`).join('');
-  const editor=editable?`<div class="successful-rec-editor" aria-labelledby="successfulRecTitle"><div class="successful-rec-editor-head"><div class="successful-rec-editor-icon" aria-hidden="true">✦</div><div><h4 id="successfulRecTitle">إدخال توجيه ناجح</h4><p>أضيفي الرمز واختاري Call أو Put.</p></div></div><div class="recommendation-input-row"><label><span>الشركة</span><input id="recommendationSymbol" type="text" dir="ltr" autocomplete="off" placeholder="مثال: QQQ"></label><label><span>الخيار</span><select id="recommendationOption" dir="ltr"><option value="">اختاري</option><option value="CALL">Call</option><option value="PUT">Put</option></select></label></div><div class="recommendation-save-actions"><button type="button" id="saveAndAddRecommendation">حفظ وإدخال جديد</button><button type="button" id="cancelRecommendationEdit" hidden>إلغاء التعديل</button></div></div>`:'';
-  return `<section class="successful-recommendations" aria-label="التوجيهات الناجحة"><header class="successful-rec-heading"><div class="successful-rec-emblem" aria-hidden="true">✦</div><div class="successful-rec-heading-copy"><small>WEEKLY GUIDANCE</small><h3>التوجيهات الناجحة</h3></div><span class="successful-rec-count">${items.length} ${label}</span></header>${items.length?`<ul>${cards}</ul>`:`<div class="recommendation-empty">لا توجد توجيهات محفوظة لهذه الفترة</div>`}${editor}</section>`;
+function recommendationMarkup(items){
+  if(!items.length)return '';
+  return `<section class="successful-recommendations"><h3><span class="recommendation-target" aria-hidden="true">◎</span> التوجيهات الناجحة</h3><ul>${items.map(item=>`<li><span class="recommendation-check" aria-hidden="true">✓</span><bdi dir="ltr">${escapeHtml(item.symbol)} – <span class="recommendation-${item.option.toLowerCase()}">${item.option}</span></bdi></li>`).join('')}</ul></section>`;
 }
 function updateReportRecommendationsIn(root){
   const card=root?.querySelector?.('.infographic-card');if(!card)return;
   const old=card.querySelector('.successful-recommendations');
-  const editingState=editingRecommendationId?{symbol:$('recommendationSymbol')?.value||'',option:$('recommendationOption')?.value||''}:null;
-  const markup=recommendationMarkup(readSuccessfulRecommendations(),true);
-  if(old && old.outerHTML===markup)return;
-  if(old)old.outerHTML=markup;
-  else card.querySelector('.infographic-table-panel')?.insertAdjacentHTML('afterend',markup);
-  if(editingState){
-    const stillExists=findRecommendation(readRecommendationsByWeek(),editingRecommendationId);
-    if(stillExists){$('recommendationSymbol').value=editingState.symbol;$('recommendationOption').value=editingState.option;$('saveAndAddRecommendation').textContent='حفظ التعديل';$('cancelRecommendationEdit').hidden=false}
-    else resetRecommendationEditor();
-  }
-  if(!$('previewModal')?.hidden)requestAnimationFrame(()=>requestAnimationFrame(fitLivePreview));
+  const markup=recommendationMarkup(readSuccessfulRecommendations());
+  if(old){if(markup)old.outerHTML=markup;else old.remove()}
+  else if(markup)card.querySelector('.infographic-table-panel')?.insertAdjacentHTML('afterend',markup);
+  if(!$('previewModal')?.hidden)fitLivePreview();
 }
-function openTopTradesPreview(){editingRecommendationId='';showLivePreview();showToast('تم فتح التقرير للمعاينة')}
-let editingRecommendationId='';
-function resetRecommendationEditor(){
-  editingRecommendationId='';
-  const symbol=$('recommendationSymbol'),option=$('recommendationOption'),save=$('saveAndAddRecommendation'),cancel=$('cancelRecommendationEdit');
-  if(symbol)symbol.value='';if(option)option.value='';
-  if(save)save.textContent='حفظ وإدخال جديد';if(cancel)cancel.hidden=true;
+function openTopTradesPreview(){
+  $('recommendationSymbol').value='';
+  $('recommendationOption').value='';
+  showLivePreview();
+  showToast('تم فتح التقرير للمعاينة');
 }
-function findRecommendation(byWeek,id){
-  for(const [key,items] of Object.entries(byWeek||{})){const index=(Array.isArray(items)?items:[]).findIndex(item=>String(item?.id||'')===String(id));if(index>=0)return{key,index,record:items[index]}}
-  return null;
-}
-function beginRecommendationEdit(id){
-  const byWeek=readRecommendationsByWeek(),found=findRecommendation(byWeek,id);if(!found)return;
-  editingRecommendationId=id;$('recommendationSymbol').value=found.record.symbol||'';$('recommendationOption').value=found.record.option||'';
-  $('saveAndAddRecommendation').textContent='حفظ التعديل';$('cancelRecommendationEdit').hidden=false;
-  $('recommendationSymbol').focus();$('recommendationSymbol').scrollIntoView({block:'nearest',behavior:'smooth'});
-}
-function saveRecommendationFromEditor(){
-  const symbol=$('recommendationSymbol')?.value.trim().toUpperCase()||'',option=$('recommendationOption')?.value||'';
+$('saveAndAddRecommendation')?.addEventListener('click',()=>{
+  const symbol=$('recommendationSymbol').value.trim().toUpperCase();
+  const option=$('recommendationOption').value;
   if(!symbol||!['CALL','PUT'].includes(option)){showToast('اكتبي الشركة واختاري Call أو Put');return}
   const byWeek=readRecommendationsByWeek();
-  if(editingRecommendationId){
-    const found=findRecommendation(byWeek,editingRecommendationId);if(!found){resetRecommendationEditor();showToast('لم يعد التوجيه موجودًا');return}
-    const updated={...found.record,symbol,option,editedAt:Date.now()};byWeek[found.key][found.index]=updated;
-    writeRecommendationsByWeek(byWeek,{sync:false});scheduleRecommendationCloudUpdate(found.key,updated);
-    resetRecommendationEditor();updateReportRecommendationsIn($('previewContent'));$('recommendationSymbol')?.focus();showToast('تم تحديث التوجيه');return;
-  }
-  const key=selectedWeekKey();byWeek[key]=Array.isArray(byWeek[key])?byWeek[key]:[];
+  const key=selectedWeekKey();
+  byWeek[key]=Array.isArray(byWeek[key])?byWeek[key]:[];
   const selectedFrom=$('fromDate').value||currentWeekRange().from,selectedTo=$('toDate').value||currentWeekRange().to;
-  const today=toISO(new Date()),entryDate=today>=selectedFrom&&today<=selectedTo?today:selectedFrom;
+  const today=toISO(new Date());
+  const entryDate=today>=selectedFrom&&today<=selectedTo?today:selectedFrom;
   const record={id:`${Date.now()}-${Math.random().toString(36).slice(2,8)}`,symbol,option,savedAt:Date.now(),date:entryDate};
-  byWeek[key].push(record);writeRecommendationsByWeek(byWeek,{sync:false});scheduleRecommendationCloudSave(key,record);
-  resetRecommendationEditor();updateReportRecommendationsIn($('previewContent'));$('recommendationSymbol')?.focus();showToast('تم حفظ التوجيه؛ أدخلي التالي');
-}
-function deleteRecommendation(id){
-  const byWeek=readRecommendationsByWeek(),found=findRecommendation(byWeek,id);if(!found)return;
-  if(!confirm(`حذف التوجيه ${found.record.symbol} ${found.record.option}؟`))return;
-  byWeek[found.key]=byWeek[found.key].filter(item=>String(item?.id||'')!==String(id));if(!byWeek[found.key].length)delete byWeek[found.key];
-  writeRecommendationsByWeek(byWeek,{sync:false});scheduleRecommendationCloudDelete(found.key,id);
-  if(editingRecommendationId===id)resetRecommendationEditor();updateReportRecommendationsIn($('previewContent'));showToast('تم حذف التوجيه');
-}
-$('previewContent')?.addEventListener('click',e=>{
-  const edit=e.target.closest('[data-rec-edit]');if(edit){beginRecommendationEdit(edit.dataset.recEdit);return}
-  const remove=e.target.closest('[data-rec-delete]');if(remove){deleteRecommendation(remove.dataset.recDelete);return}
-  if(e.target.closest('#saveAndAddRecommendation')){saveRecommendationFromEditor();return}
-  if(e.target.closest('#cancelRecommendationEdit'))resetRecommendationEditor();
+  byWeek[key].push(record);
+  writeRecommendationsByWeek(byWeek,{sync:false});
+  scheduleRecommendationCloudSave(key,record);
+  $('recommendationSymbol').value='';
+  $('recommendationOption').value='';
+  updateReportRecommendationsIn($('previewContent'));
+  $('recommendationSymbol').focus();
+  showToast('تم حفظ التوجيه؛ أدخلي التالي');
 });
 
 
