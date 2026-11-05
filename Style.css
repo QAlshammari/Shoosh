@@ -4634,3 +4634,36 @@ body{
  .recommendation-input-row input,.recommendation-input-row select{min-height:34px!important;font-size:12px!important}
  .recommendation-save-actions button{min-height:29px!important;font-size:10px!important}
 }
+
+/* Successful recommendations: compact rows matching the report reference. */
+.successful-recommendations{display:block!important;width:100%!important;box-sizing:border-box!important;overflow:hidden!important;margin:16px 0 22px!important;padding:0!important;border:1px solid #d3b66e!important;border-radius:20px!important;background:#fffdf7!important;box-shadow:0 4px 0 rgba(169,126,45,.30),0 8px 18px rgba(87,64,29,.08)!important}
+.successful-rec-heading{display:flex!important;align-items:center!important;gap:12px!important;min-height:58px!important;padding:9px 18px!important;direction:rtl!important;background:linear-gradient(180deg,#fff7df,#ebd59d)!important;border:0!important;border-bottom:1px solid #d6b974!important;color:#4b3819!important}
+.successful-rec-emblem{width:34px!important;height:34px!important;border:1px solid #d9bf7b!important;border-radius:50%!important;background:#f8edcc!important;color:#ad8731!important;font:800 18px Arial,sans-serif!important;box-shadow:none!important}
+.successful-rec-heading-copy{margin-left:auto!important;text-align:right!important}
+.successful-rec-heading-copy small{display:none!important}
+.successful-rec-heading h3{padding:0!important;border:0!important;background:none!important;color:#4b3819!important;font:900 25px/1.25 Cairo,Arial,Tahoma,sans-serif!important;white-space:nowrap!important}
+.successful-rec-count{display:none!important}
+.successful-recommendations ul{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px 14px!important;margin:0!important;padding:15px 17px!important;border:0!important;border-radius:0!important;background:#fffdf7!important;list-style:none!important;direction:rtl!important}
+.successful-rec-card{box-sizing:border-box!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:9px!important;min-width:0!important;min-height:64px!important;padding:10px 12px!important;overflow:hidden!important;border:1px solid #eadcb9!important;border-radius:13px!important;background:linear-gradient(180deg,#fff,#fffaf0)!important;color:#211b13!important;box-shadow:0 2px 0 rgba(165,124,49,.16)!important;direction:ltr!important;white-space:nowrap!important}
+.successful-rec-card::after{display:none!important}
+.recommendation-symbol{flex:0 1 auto!important;min-width:0!important;overflow:hidden!important;color:#211b13!important;font:800 22px/1.1 Cairo,Arial,Tahoma,sans-serif!important;letter-spacing:0!important;text-overflow:ellipsis!important;text-align:center!important}
+.recommendation-separator{flex:none!important;color:#92723a!important;font:700 18px/1 Cairo,Arial,Tahoma,sans-serif!important}
+.recommendation-option-badge{flex:none!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#328347!important;font:800 18px/1 Cairo,Arial,Tahoma,sans-serif!important}
+.recommendation-option-badge.recommendation-put{background:transparent!important;color:#b54848!important}
+.recommendation-check{position:relative!important;z-index:1!important;display:inline-grid!important;place-items:center!important;flex:none!important;width:29px!important;height:29px!important;border-radius:50%!important;background:#2fa65b!important;color:#fff!important;font:900 20px/1 Arial,sans-serif!important;box-shadow:0 2px 5px rgba(24,99,49,.22)!important}
+.recommendation-card-actions{position:relative!important;z-index:2!important;display:flex!important;align-items:center!important;flex:none!important;gap:4px!important;margin:0 0 0 4px!important}
+.recommendation-card-actions button{min-height:27px!important;padding:3px 7px!important;border:1px solid #ddc998!important;border-radius:7px!important;background:#fffaf0!important;color:#745823!important;font:700 10px Cairo,Arial,Tahoma,sans-serif!important;white-space:nowrap!important;cursor:pointer!important}
+.recommendation-card-actions button.delete{border-color:#e4c1bb!important;background:#fff6f4!important;color:#a04b45!important}
+.capture-mode .recommendation-card-actions,.export-stage .recommendation-card-actions,.capture-mode .successful-rec-editor,.export-stage .successful-rec-editor{display:none!important}
+@media(max-width:720px){
+ .successful-recommendations{margin:12px 0 17px!important;border-radius:15px!important}
+ .successful-rec-heading{min-height:50px!important;padding:7px 12px!important}
+ .successful-rec-heading h3{font-size:20px!important}
+ .successful-rec-emblem{width:29px!important;height:29px!important;font-size:16px!important}
+ .successful-recommendations ul{grid-template-columns:1fr!important;gap:7px!important;padding:10px!important}
+ .successful-rec-card{justify-content:flex-start!important;min-height:52px!important;padding:8px 10px!important;gap:8px!important}
+ .recommendation-symbol{font-size:19px!important}
+ .recommendation-option-badge{font-size:16px!important}
+ .recommendation-check{width:25px!important;height:25px!important;font-size:17px!important}
+ .recommendation-card-actions{margin-left:auto!important}
+}
