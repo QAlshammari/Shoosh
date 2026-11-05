@@ -1339,23 +1339,22 @@ function readSuccessfulRecommendations(){
 function recommendationMarkup(items,editable=false){
   if(!items.length&&!editable)return '';
   const label=items.length===1?'توجيه ناجح':'توجيهات ناجحة';
-  const cards=items.map((item,index)=>{const editing=editable&&editingRecommendationId===item.id;return `<li class="successful-rec-card${editing?' is-editing':''}" data-rec-card="${escapeHtml(item.id)}"><span class="recommendation-index">${String(index+1).padStart(2,'0')}</span>${editing?`<input class="recommendation-inline-symbol" data-rec-symbol value="${escapeHtml(item.symbol)}" aria-label="رمز الشركة" dir="ltr"><select class="recommendation-inline-option" data-rec-option aria-label="نوع الخيار"><option value="CALL" ${item.option==='CALL'?'selected':''}>CALL</option><option value="PUT" ${item.option==='PUT'?'selected':''}>PUT</option></select>`:`<bdi class="recommendation-symbol" dir="ltr">${escapeHtml(item.symbol)}</bdi><span class="recommendation-option-badge recommendation-${item.option.toLowerCase()}"><i aria-hidden="true">${item.option==='CALL'?'↗':'↘'}</i>${item.option}</span>`}${editable&&item.id?`<span class="recommendation-card-actions">${editing?`<button type="button" data-rec-save="${escapeHtml(item.id)}">حفظ</button><button type="button" data-rec-cancel>إلغاء</button>`:`<button type="button" data-rec-edit="${escapeHtml(item.id)}">تعديل</button>`}<button type="button" class="delete" data-rec-delete="${escapeHtml(item.id)}">حذف</button></span>`:''}</li>`}).join('');
+  const cards=items.map((item,index)=>`<li class="successful-rec-card"><span class="recommendation-index">${String(index+1).padStart(2,'0')}</span><bdi class="recommendation-symbol" dir="ltr">${escapeHtml(item.symbol)}</bdi><span class="recommendation-option-badge recommendation-${item.option.toLowerCase()}"><i aria-hidden="true">${item.option==='CALL'?'↗':'↘'}</i>${item.option}</span>${editable&&item.id?`<span class="recommendation-card-actions"><button type="button" data-rec-edit="${escapeHtml(item.id)}">تعديل</button><button type="button" class="delete" data-rec-delete="${escapeHtml(item.id)}">حذف</button></span>`:''}</li>`).join('');
   const editor=editable?`<div class="successful-rec-editor" aria-labelledby="successfulRecTitle"><div class="successful-rec-editor-head"><div class="successful-rec-editor-icon" aria-hidden="true">✦</div><div><h4 id="successfulRecTitle">إدخال توجيه ناجح</h4><p>أضيفي الرمز واختاري Call أو Put.</p></div></div><div class="recommendation-input-row"><label><span>الشركة</span><input id="recommendationSymbol" type="text" dir="ltr" autocomplete="off" placeholder="مثال: QQQ"></label><label><span>الخيار</span><select id="recommendationOption" dir="ltr"><option value="">اختاري</option><option value="CALL">Call</option><option value="PUT">Put</option></select></label></div><div class="recommendation-save-actions"><button type="button" id="saveAndAddRecommendation">حفظ وإدخال جديد</button><button type="button" id="cancelRecommendationEdit" hidden>إلغاء التعديل</button></div></div>`:'';
   return `<section class="successful-recommendations" aria-label="التوجيهات الناجحة"><header class="successful-rec-heading"><div class="successful-rec-emblem" aria-hidden="true">✦</div><div class="successful-rec-heading-copy"><small>WEEKLY GUIDANCE</small><h3>التوجيهات الناجحة</h3></div><span class="successful-rec-count">${items.length} ${label}</span></header>${items.length?`<ul>${cards}</ul>`:`<div class="recommendation-empty">لا توجد توجيهات محفوظة لهذه الفترة</div>`}${editor}</section>`;
 }
 function updateReportRecommendationsIn(root){
   const card=root?.querySelector?.('.infographic-card');if(!card)return;
   const old=card.querySelector('.successful-recommendations');
-  const currentEditor=card.querySelector('.successful-rec-card.is-editing');
-  const editingState=currentEditor?{id:currentEditor.dataset.recCard,symbol:currentEditor.querySelector('[data-rec-symbol]')?.value||'',option:currentEditor.querySelector('[data-rec-option]')?.value||''}:null;
+  const editingState=editingRecommendationId?{symbol:$('recommendationSymbol')?.value||'',option:$('recommendationOption')?.value||''}:null;
   const markup=recommendationMarkup(readSuccessfulRecommendations(),true);
   if(old && old.outerHTML===markup)return;
   if(old)old.outerHTML=markup;
   else card.querySelector('.infographic-table-panel')?.insertAdjacentHTML('afterend',markup);
   if(editingState){
-    const stillExists=findRecommendation(readRecommendationsByWeek(),editingState.id);
-    if(stillExists){const liveCard=card.querySelector(`.successful-rec-card[data-rec-card="${CSS.escape(editingState.id)}"]`);if(liveCard){liveCard.querySelector('[data-rec-symbol]').value=editingState.symbol;liveCard.querySelector('[data-rec-option]').value=editingState.option}}
-    else editingRecommendationId='';
+    const stillExists=findRecommendation(readRecommendationsByWeek(),editingRecommendationId);
+    if(stillExists){$('recommendationSymbol').value=editingState.symbol;$('recommendationOption').value=editingState.option;$('saveAndAddRecommendation').textContent='حفظ التعديل';$('cancelRecommendationEdit').hidden=false}
+    else resetRecommendationEditor();
   }
   if(!$('previewModal')?.hidden)requestAnimationFrame(()=>requestAnimationFrame(fitLivePreview));
 }
@@ -1372,18 +1371,10 @@ function findRecommendation(byWeek,id){
   return null;
 }
 function beginRecommendationEdit(id){
-  const found=findRecommendation(readRecommendationsByWeek(),id);if(!found)return;
-  editingRecommendationId=id;updateReportRecommendationsIn($('previewContent'));
-  $('previewContent')?.querySelector('.successful-rec-card.is-editing .recommendation-inline-symbol')?.focus();
-}
-function saveInlineRecommendationEdit(id){
-  const card=$('previewContent')?.querySelector('.successful-rec-card.is-editing');if(!card)return;
-  const symbol=card.querySelector('[data-rec-symbol]')?.value.trim().toUpperCase()||'',option=card.querySelector('[data-rec-option]')?.value||'';
-  if(!symbol||!['CALL','PUT'].includes(option)){showToast('أدخلي رمز الشركة واختاري Call أو Put');return}
   const byWeek=readRecommendationsByWeek(),found=findRecommendation(byWeek,id);if(!found)return;
-  const updated={...found.record,symbol,option,editedAt:Date.now()};byWeek[found.key][found.index]=updated;
-  writeRecommendationsByWeek(byWeek,{sync:false});scheduleRecommendationCloudUpdate(found.key,updated);
-  editingRecommendationId='';updateReportRecommendationsIn($('previewContent'));showToast('تم تحديث التوجيه');
+  editingRecommendationId=id;$('recommendationSymbol').value=found.record.symbol||'';$('recommendationOption').value=found.record.option||'';
+  $('saveAndAddRecommendation').textContent='حفظ التعديل';$('cancelRecommendationEdit').hidden=false;
+  $('recommendationSymbol').focus();$('recommendationSymbol').scrollIntoView({block:'nearest',behavior:'smooth'});
 }
 function saveRecommendationFromEditor(){
   const symbol=$('recommendationSymbol')?.value.trim().toUpperCase()||'',option=$('recommendationOption')?.value||'';
@@ -1411,8 +1402,6 @@ function deleteRecommendation(id){
 }
 $('previewContent')?.addEventListener('click',e=>{
   const edit=e.target.closest('[data-rec-edit]');if(edit){beginRecommendationEdit(edit.dataset.recEdit);return}
-  const saveEdit=e.target.closest('[data-rec-save]');if(saveEdit){saveInlineRecommendationEdit(saveEdit.dataset.recSave);return}
-  if(e.target.closest('[data-rec-cancel]')){editingRecommendationId='';updateReportRecommendationsIn($('previewContent'));return}
   const remove=e.target.closest('[data-rec-delete]');if(remove){deleteRecommendation(remove.dataset.recDelete);return}
   if(e.target.closest('#saveAndAddRecommendation')){saveRecommendationFromEditor();return}
   if(e.target.closest('#cancelRecommendationEdit'))resetRecommendationEditor();
