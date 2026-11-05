@@ -4654,7 +4654,7 @@ body{
 .recommendation-card-actions{position:relative!important;z-index:2!important;display:flex!important;align-items:center!important;flex:none!important;gap:4px!important;margin:0 0 0 4px!important}
 .recommendation-card-actions button{min-height:27px!important;padding:3px 7px!important;border:1px solid #ddc998!important;border-radius:7px!important;background:#fffaf0!important;color:#745823!important;font:700 10px Cairo,Arial,Tahoma,sans-serif!important;white-space:nowrap!important;cursor:pointer!important}
 .recommendation-card-actions button.delete{border-color:#e4c1bb!important;background:#fff6f4!important;color:#a04b45!important}
-.capture-mode .recommendation-card-actions,.export-stage .recommendation-card-actions,.capture-mode .successful-rec-editor,.export-stage .successful-rec-editor{display:none!important}
+.export-stage .recommendation-card-actions,.export-stage .successful-rec-editor{display:none!important}
 @media(max-width:720px){
  .successful-recommendations{margin:12px 0 17px!important;border-radius:15px!important}
  .successful-rec-heading{min-height:50px!important;padding:7px 12px!important}
