@@ -4601,3 +4601,36 @@ body{
  .recommendation-save-actions{margin-top:6px!important}
  .recommendation-save-actions button{min-height:29px!important;padding:3px 11px!important;font-size:10px!important}
 }
+
+/* Keep the wide logo banner shorter while retaining its full page width. */
+.hero-logo,.head .logo{width:100%!important;max-width:none!important;height:400px!important;max-height:400px!important;object-fit:fill!important;object-position:center!important}
+.refined-light .info-header.logo-only .info-logo.bigger,.capture-mode .info-header.logo-only .info-logo.bigger,.preview-live-scale .capture-mode .info-logo.bigger,.export-stage .capture-mode .info-logo.bigger{width:100%!important;max-width:none!important;height:400px!important;max-height:400px!important;object-fit:fill!important}
+.successful-rec-heading{min-height:74px!important}
+.successful-rec-card{gap:10px!important;padding:11px 13px!important}
+.recommendation-card-actions{position:relative!important;z-index:2!important;display:flex!important;align-items:center!important;gap:5px!important;margin-left:2px!important}
+.recommendation-card-actions button{min-height:30px!important;padding:4px 8px!important;border:1px solid #d1b270!important;border-radius:8px!important;background:#fbf5e8!important;color:#745823!important;font:800 11px Cairo,Arial,sans-serif!important;white-space:nowrap!important;cursor:pointer!important}
+.recommendation-card-actions button.delete{border-color:#dfb1ad!important;background:#fbefed!important;color:#a04b45!important}
+.recommendation-empty{padding:14px 20px;text-align:center;color:#82704e;font:700 15px Cairo,Arial,sans-serif}
+.successful-rec-editor{margin:0 18px 18px!important;padding:12px 15px!important;border:1px solid #e3d1ad!important;border-radius:15px!important;background:rgba(255,255,255,.78)!important;box-shadow:inset 0 1px 0 #fff!important}
+.successful-rec-editor-head{gap:9px!important;margin-bottom:8px!important}
+.successful-rec-editor-icon{width:32px!important;height:32px!important;border-radius:11px!important;font-size:19px!important}
+.successful-rec-editor h4{margin:0!important;color:#493416!important;font:900 15px Cairo,Arial,sans-serif!important}
+.successful-rec-editor p{margin:1px 0 0!important;color:#786647!important;font-size:10px!important}
+.recommendation-input-row{grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr)!important;gap:8px!important;padding:0!important;border:0!important;background:transparent!important}
+.recommendation-input-row label{gap:3px!important;font-size:10px!important}
+.recommendation-input-row input,.recommendation-input-row select{min-height:34px!important;padding:5px 9px!important;font-size:13px!important;border-radius:8px!important}
+.recommendation-save-actions{display:flex!important;justify-content:center!important;gap:7px!important;margin-top:7px!important}
+.recommendation-save-actions button{min-height:30px!important;padding:4px 12px!important;border:1px solid #bc954a!important;border-radius:8px!important;background:linear-gradient(#fff8e6,#e7ce91)!important;color:#574018!important;font:800 11px Cairo,Arial,sans-serif!important;box-shadow:0 2px 4px rgba(91,64,18,.12)!important;cursor:pointer!important}
+.recommendation-save-actions button[hidden]{display:none!important}
+@media(max-width:650px){
+ .hero-logo,.head .logo{height:auto!important;max-height:none!important;object-fit:contain!important}
+ .refined-light .info-header.logo-only .info-logo.bigger,.capture-mode .info-header.logo-only .info-logo.bigger,.preview-live-scale .capture-mode .info-logo.bigger,.export-stage .capture-mode .info-logo.bigger{height:400px!important;max-height:400px!important;object-fit:fill!important}
+ .successful-rec-heading{min-height:62px!important}
+ .successful-rec-card{gap:8px!important;padding:8px 10px!important}
+ .recommendation-card-actions{gap:4px!important}
+ .recommendation-card-actions button{min-height:28px!important;padding:3px 6px!important;font-size:10px!important}
+ .successful-rec-editor{margin:0 10px 12px!important;padding:9px 10px!important}
+ .recommendation-input-row{grid-template-columns:minmax(0,1fr) minmax(0,.72fr)!important;gap:7px!important}
+ .recommendation-input-row input,.recommendation-input-row select{min-height:34px!important;font-size:12px!important}
+ .recommendation-save-actions button{min-height:29px!important;font-size:10px!important}
+}
