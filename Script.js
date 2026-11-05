@@ -899,8 +899,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
     String(a.symbol).localeCompare(String(b.symbol))
   );
   const periodText=`${$('fromDate').value || '—'}  →  ${$('toDate').value || '—'}`;
-  const successfulRecommendations=readSuccessfulRecommendations();
-  const recommendationsBlock=successfulRecommendations.length?`<section class="successful-recommendations"><h3>✦ توجيهات ناجحة</h3><ul>${successfulRecommendations.map(item=>`<li dir="ltr">${escapeHtml(item)}</li>`).join('')}</ul></section>`:'';
+  const recommendationsBlock=recommendationMarkup(readSuccessfulRecommendations());
   const winPct = s.counted.length ? (s.wins.length / s.counted.length * 100) : 0;
   const stoppedCount = s.stopped.length;
   const flatCount = s.counted.filter(t=>tradeOutcome(t)==='flat').length;
@@ -987,7 +986,6 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
           <div class="digital profit-new-value">${moneyInt(s.net)}</div>
         </div>
       </div>
-      ${recommendationsBlock}
 
       <div class="info-bottom" style="display:none!important">
         <div class="info-box distribution-box">
@@ -1081,6 +1079,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
         </table>
         ${captureId==='liveShareCapture'?'</div>':''}
       </div>
+      ${recommendationsBlock}
 
       <div class="report-footer-note footer-only">
         <div class="report-disclaimer"><span class="notice-pin" aria-hidden="true">📌</span>جميع نتائج الصفقات المطروحة في الجدول عبارة عن سعر الدخول والتوجيه بالخروج، وليست أعلى سعر محقق للعقد.</div>
@@ -1248,27 +1247,55 @@ function hidePreview(){
 }
 
 function readSuccessfulRecommendations(){
-  try{return (localStorage.getItem(SUCCESSFUL_RECOMMENDATIONS_KEY)||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,20)}catch(_e){return []}
+  try{
+    const raw=localStorage.getItem(SUCCESSFUL_RECOMMENDATIONS_KEY)||'';
+    if(!raw)return [];
+    const parsed=JSON.parse(raw);
+    if(Array.isArray(parsed))return parsed.filter(x=>x&&String(x.symbol||'').trim()&&['CALL','PUT'].includes(String(x.option||'').toUpperCase())).slice(0,20).map(x=>({symbol:String(x.symbol).trim().toUpperCase(),option:String(x.option).toUpperCase()}));
+    // Accept entries saved by the earlier one-line editor.
+    return raw.split(/\r?\n/).map(line=>{const m=line.trim().match(/^(.+?)\s+(call|put)$/i);return m?{symbol:m[1].trim().toUpperCase(),option:m[2].toUpperCase()}:null}).filter(Boolean).slice(0,20);
+  }catch(_e){return []}
 }
-function openRecommendationsBeforeReport(){
-  const modal=$('recommendationsModal'),field=$('successfulRecommendations');
-  if(!modal||!field){openTopTradesPreview();return}
-  field.value=readSuccessfulRecommendations().join('\n');
-  modal.hidden=false;
-  field.focus();
+function recommendationMarkup(items){
+  if(!items.length)return '';
+  return `<section class="successful-recommendations"><h3><span class="recommendation-target" aria-hidden="true">◎</span> التوجيهات الناجحة</h3><ul>${items.map(item=>`<li><span class="recommendation-check" aria-hidden="true">✓</span><bdi dir="ltr">${escapeHtml(item.symbol)} – <span class="recommendation-${item.option.toLowerCase()}">${item.option}</span></bdi></li>`).join('')}</ul></section>`;
 }
-function closeRecommendationsDialog(){ $('recommendationsModal').hidden=true; }
-$('recommendationsForm')?.addEventListener('submit',e=>{
-  e.preventDefault();
-  const value=$('successfulRecommendations').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,20).join('\n');
-  localStorage.setItem(SUCCESSFUL_RECOMMENDATIONS_KEY,value);
-  closeRecommendationsDialog();
-  openTopTradesPreview();
+function renderRecommendationInputs(){
+  const host=$('recommendationRows');if(!host)return;
+  const saved=readSuccessfulRecommendations();
+  const count=Math.max(2,saved.length);
+  host.innerHTML=Array.from({length:count},(_,i)=>{
+    const item=saved[i]||{symbol:'',option:''};
+    return `<div class="recommendation-input-row"><label><span>الشركة</span><input class="recommendation-symbol" type="text" dir="ltr" autocomplete="off" placeholder="مثال: QQQ" value="${escapeHtml(item.symbol)}"></label><label><span>الخيار</span><select class="recommendation-option" dir="ltr"><option value="">اختاري</option><option value="CALL" ${item.option==='CALL'?'selected':''}>Call</option><option value="PUT" ${item.option==='PUT'?'selected':''}>Put</option></select></label><button class="remove-recommendation-row" type="button" aria-label="حذف التوجيه">×</button></div>`;
+  }).join('');
+}
+function collectSuccessfulRecommendations(){
+  return [...document.querySelectorAll('.recommendation-input-row')].map(row=>({symbol:row.querySelector('.recommendation-symbol').value.trim().toUpperCase(),option:row.querySelector('.recommendation-option').value})).filter(item=>item.symbol&&['CALL','PUT'].includes(item.option)).slice(0,20);
+}
+let recommendationRefreshTimer;
+function saveRecommendationInputs(refresh=true){
+  const items=collectSuccessfulRecommendations();
+  localStorage.setItem(SUCCESSFUL_RECOMMENDATIONS_KEY,JSON.stringify(items));
+  if(refresh){clearTimeout(recommendationRefreshTimer);recommendationRefreshTimer=setTimeout(()=>showLivePreview(),260)}
+}
+$('recommendationRows')?.addEventListener('input',()=>saveRecommendationInputs());
+$('recommendationRows')?.addEventListener('change',()=>saveRecommendationInputs());
+$('recommendationRows')?.addEventListener('click',e=>{
+  if(!e.target.closest('.remove-recommendation-row'))return;
+  const row=e.target.closest('.recommendation-input-row');
+  if(document.querySelectorAll('.recommendation-input-row').length>2)row.remove();
+  else {row.querySelector('.recommendation-symbol').value='';row.querySelector('.recommendation-option').value=''}
+  saveRecommendationInputs();
 });
-$('recommendationsClose')?.addEventListener('click',closeRecommendationsDialog);
-$('recommendationsCancel')?.addEventListener('click',closeRecommendationsDialog);
-$('recommendationsModal')?.addEventListener('click',e=>{if(e.target.id==='recommendationsModal')closeRecommendationsDialog()});
+$('addRecommendationRow')?.addEventListener('click',()=>{
+  if(document.querySelectorAll('.recommendation-input-row').length>=20){showToast('يمكن إضافة 20 توجيهًا كحد أقصى');return}
+  const host=$('recommendationRows');
+  const row=document.createElement('div');row.className='recommendation-input-row';
+  row.innerHTML='<label><span>الشركة</span><input class="recommendation-symbol" type="text" dir="ltr" autocomplete="off" placeholder="مثال: QQQ"></label><label><span>الخيار</span><select class="recommendation-option" dir="ltr"><option value="">اختاري</option><option value="CALL">Call</option><option value="PUT">Put</option></select></label><button class="remove-recommendation-row" type="button" aria-label="حذف التوجيه">×</button>';
+  host.appendChild(row);row.querySelector('.recommendation-symbol').focus();
+});
 function openTopTradesPreview(){
+  renderRecommendationInputs();
   showLivePreview();
   showToast('تم فتح التقرير للمعاينة');
 }
@@ -1683,10 +1710,10 @@ $('manualTradeForm').addEventListener('input',saveManualDraft);
 $('manualTradeForm').addEventListener('change',saveManualDraft);
 $('manualApply').addEventListener('click',()=>applyManualTrades(true));
 $('manualPdf').addEventListener('click',()=>{if(applyManualTrades(true)) exportPdf()});
-$('manualImage').addEventListener('click',()=>{if(applyManualTrades(true)) openRecommendationsBeforeReport()});
+$('manualImage').addEventListener('click',()=>{if(applyManualTrades(true)) openTopTradesPreview()});
 $('manualExcel').addEventListener('click',exportManualTradesToExcel);
 $('pdfBtn').addEventListener('click',exportPdf);
-$('imageBtn').addEventListener('click',openRecommendationsBeforeReport);
+$('imageBtn').addEventListener('click',openTopTradesPreview);
 $('previewClose')?.addEventListener('click',hidePreview);
 $('previewDownload')?.addEventListener('click',saveOrShareTopTrades);
 $('previewModal')?.addEventListener('click',e=>{ if(e.target.id==='previewModal') hidePreview(); });

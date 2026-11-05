@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="Style.css?v=REPORT-11-RECOMMENDATIONS">
+  <link rel="stylesheet" href="Style.css?v=REPORT-12-RECOMMENDATIONS-PREVIEW">
   <link rel="stylesheet" href="Home-actions-layout.css?v=1">
 </head>
 <body data-qoptions-build="FIXED-MOBILE-COLOR-CAPTURE">
@@ -239,26 +239,20 @@
     </div>
   </div>
 
-  <div id="recommendationsModal" class="recommendations-modal no-print" hidden>
-    <form id="recommendationsForm" class="recommendations-dialog">
-      <button type="button" id="recommendationsClose" class="recommendations-close" aria-label="إغلاق">×</button>
-      <div class="recommendations-icon" aria-hidden="true">✦</div>
-      <h2>توجيهات ناجحة</h2>
-      <p>أضيفي كل توجيه في سطر مستقل، مثل: <bdi dir="ltr">QQQ Call</bdi></p>
-      <textarea id="successfulRecommendations" rows="4" placeholder="QQQ Call&#10;UNH Put&#10;SNDK Call"></textarea>
-      <div class="recommendations-actions">
-        <button type="button" id="recommendationsCancel">إلغاء</button>
-        <button type="submit">متابعة إلى التقرير</button>
-      </div>
-    </form>
-  </div>
-
   <div id="previewModal" class="preview-modal no-print" hidden>
     <div class="preview-dialog">
       <button type="button" class="preview-close" id="previewClose" aria-label="إغلاق">×</button>
       <div class="preview-body" id="previewBody">
         <div id="previewContent" class="preview-live-content"></div>
       </div>
+      <section class="successful-rec-editor" aria-labelledby="successfulRecTitle">
+        <div class="successful-rec-editor-head">
+          <div class="successful-rec-editor-icon" aria-hidden="true">✦</div>
+          <div><h3 id="successfulRecTitle">إدخال التوجيهات الناجحة</h3><p>اكتبي اسم الشركة واختاري Call أو Put. تظهر التوجيهات أسفل الصفقات في الصورة.</p></div>
+        </div>
+        <div id="recommendationRows" class="recommendation-rows"></div>
+        <button type="button" id="addRecommendationRow" class="add-recommendation-row">＋ إضافة توجيه</button>
+      </section>
       <div class="preview-actions">
         <button id="previewDownload" class="preview-download" type="button">حفظ الصورة</button>
       </div>
@@ -276,6 +270,6 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-database-compat.js"></script>
-  <script src="Script.js?v=REPORT-11-RECOMMENDATIONS"></script>
+  <script src="Script.js?v=REPORT-12-RECOMMENDATIONS-PREVIEW"></script>
 </body>
 </html>
