@@ -1322,15 +1322,17 @@ function readSuccessfulRecommendations(){
 }
 function recommendationMarkup(items){
   if(!items.length)return '';
-  return `<section class="successful-recommendations"><h3><span class="recommendation-target" aria-hidden="true">◎</span> التوجيهات الناجحة</h3><ul>${items.map(item=>`<li><span class="recommendation-check" aria-hidden="true">✓</span><bdi dir="ltr">${escapeHtml(item.symbol)} – <span class="recommendation-${item.option.toLowerCase()}">${item.option}</span></bdi></li>`).join('')}</ul></section>`;
+  const label=items.length===1?'توجيه ناجح':'توجيهات ناجحة';
+  return `<section class="successful-recommendations" aria-label="التوجيهات الناجحة"><header class="successful-rec-heading"><div class="successful-rec-emblem" aria-hidden="true">✦</div><div class="successful-rec-heading-copy"><small>WEEKLY GUIDANCE</small><h3>التوجيهات الناجحة</h3></div><span class="successful-rec-count">${items.length} ${label}</span></header><ul>${items.map((item,index)=>`<li class="successful-rec-card"><span class="recommendation-index">${String(index+1).padStart(2,'0')}</span><bdi class="recommendation-symbol" dir="ltr">${escapeHtml(item.symbol)}</bdi><span class="recommendation-option-badge recommendation-${item.option.toLowerCase()}"><i aria-hidden="true">${item.option==='CALL'?'↗':'↘'}</i>${item.option}</span></li>`).join('')}</ul></section>`;
 }
 function updateReportRecommendationsIn(root){
   const card=root?.querySelector?.('.infographic-card');if(!card)return;
   const old=card.querySelector('.successful-recommendations');
   const markup=recommendationMarkup(readSuccessfulRecommendations());
+  if(old && old.outerHTML===markup)return;
   if(old){if(markup)old.outerHTML=markup;else old.remove()}
   else if(markup)card.querySelector('.infographic-table-panel')?.insertAdjacentHTML('afterend',markup);
-  if(!$('previewModal')?.hidden)fitLivePreview();
+  if(!$('previewModal')?.hidden)requestAnimationFrame(()=>requestAnimationFrame(fitLivePreview));
 }
 function openTopTradesPreview(){
   $('recommendationSymbol').value='';
