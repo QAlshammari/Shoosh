@@ -8,6 +8,7 @@ let activeManualWeekKey = '';
 const $ = id => document.getElementById(id);
 const REPORT_WIDTH = 1600;
 const SAVED_RANGE_KEY = 'qOptionsSelectedReportRange';
+const SUCCESSFUL_RECOMMENDATIONS_KEY = 'qOptionsSuccessfulRecommendations';
 const MANUAL_WEEKS_KEY = 'qOptionsManualTradesByWeekV1';
 const EXCEL_RANGES_KEY = 'qOptionsExcelTradesByRangeV1';
 const MANUAL_DRAFTS_KEY = 'qOptionsManualDraftsByWeekV1';
@@ -898,6 +899,8 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
     String(a.symbol).localeCompare(String(b.symbol))
   );
   const periodText=`${$('fromDate').value || '—'}  →  ${$('toDate').value || '—'}`;
+  const successfulRecommendations=readSuccessfulRecommendations();
+  const recommendationsBlock=successfulRecommendations.length?`<section class="successful-recommendations"><h3>✦ توجيهات ناجحة</h3><ul>${successfulRecommendations.map(item=>`<li dir="ltr">${escapeHtml(item)}</li>`).join('')}</ul></section>`:'';
   const winPct = s.counted.length ? (s.wins.length / s.counted.length * 100) : 0;
   const stoppedCount = s.stopped.length;
   const flatCount = s.counted.filter(t=>tradeOutcome(t)==='flat').length;
@@ -984,6 +987,7 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
           <div class="digital profit-new-value">${moneyInt(s.net)}</div>
         </div>
       </div>
+      ${recommendationsBlock}
 
       <div class="info-bottom" style="display:none!important">
         <div class="info-box distribution-box">
@@ -1243,9 +1247,30 @@ function hidePreview(){
   topTradesExportState={dataUrl:'',blob:null,filename:''};
 }
 
+function readSuccessfulRecommendations(){
+  try{return (localStorage.getItem(SUCCESSFUL_RECOMMENDATIONS_KEY)||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,20)}catch(_e){return []}
+}
+function openRecommendationsBeforeReport(){
+  const modal=$('recommendationsModal'),field=$('successfulRecommendations');
+  if(!modal||!field){openTopTradesPreview();return}
+  field.value=readSuccessfulRecommendations().join('\n');
+  modal.hidden=false;
+  field.focus();
+}
+function closeRecommendationsDialog(){ $('recommendationsModal').hidden=true; }
+$('recommendationsForm')?.addEventListener('submit',e=>{
+  e.preventDefault();
+  const value=$('successfulRecommendations').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,20).join('\n');
+  localStorage.setItem(SUCCESSFUL_RECOMMENDATIONS_KEY,value);
+  closeRecommendationsDialog();
+  openTopTradesPreview();
+});
+$('recommendationsClose')?.addEventListener('click',closeRecommendationsDialog);
+$('recommendationsCancel')?.addEventListener('click',closeRecommendationsDialog);
+$('recommendationsModal')?.addEventListener('click',e=>{if(e.target.id==='recommendationsModal')closeRecommendationsDialog()});
 function openTopTradesPreview(){
   showLivePreview();
-  showToast('تم فتح أهم الصفقات');
+  showToast('تم فتح التقرير للمعاينة');
 }
 
 
@@ -1658,10 +1683,10 @@ $('manualTradeForm').addEventListener('input',saveManualDraft);
 $('manualTradeForm').addEventListener('change',saveManualDraft);
 $('manualApply').addEventListener('click',()=>applyManualTrades(true));
 $('manualPdf').addEventListener('click',()=>{if(applyManualTrades(true)) exportPdf()});
-$('manualImage').addEventListener('click',()=>{if(applyManualTrades(true)) openTopTradesPreview()});
+$('manualImage').addEventListener('click',()=>{if(applyManualTrades(true)) openRecommendationsBeforeReport()});
 $('manualExcel').addEventListener('click',exportManualTradesToExcel);
 $('pdfBtn').addEventListener('click',exportPdf);
-$('imageBtn').addEventListener('click',openTopTradesPreview);
+$('imageBtn').addEventListener('click',openRecommendationsBeforeReport);
 $('previewClose')?.addEventListener('click',hidePreview);
 $('previewDownload')?.addEventListener('click',saveOrShareTopTrades);
 $('previewModal')?.addEventListener('click',e=>{ if(e.target.id==='previewModal') hidePreview(); });
