@@ -9,6 +9,7 @@ const $ = id => document.getElementById(id);
 const REPORT_WIDTH = 1600;
 const SAVED_RANGE_KEY = 'qOptionsSelectedReportRange';
 const SUCCESSFUL_RECOMMENDATIONS_KEY = 'qOptionsSuccessfulRecommendations';
+const RECOMMENDATIONS_BY_WEEK_KEY = 'qOptionsRecommendationsByWeekV1';
 const MANUAL_WEEKS_KEY = 'qOptionsManualTradesByWeekV1';
 const EXCEL_RANGES_KEY = 'qOptionsExcelTradesByRangeV1';
 const MANUAL_DRAFTS_KEY = 'qOptionsManualDraftsByWeekV1';
@@ -42,18 +43,29 @@ function writeExcelRanges(ranges,{sync=true}={}){
 }
 
 function sharedCloudPayload(){
-  return {initialized:true,manualWeeks:readManualWeeks(),excelRanges:readExcelRanges(),checkpoints:readReportCheckpoints(),updatedAt:Date.now()};
+  return {initialized:true,manualWeeks:readManualWeeks(),excelRanges:readExcelRanges(),recommendationsByWeek:readRecommendationsByWeek(),checkpoints:readReportCheckpoints(),updatedAt:Date.now()};
 }
 
 function scheduleCloudSave(){
   if(!cloudReady || applyingCloudState || !cloudRootRef) return;
   clearTimeout(cloudSaveTimer);
   cloudSaveTimer=setTimeout(()=>{
-    cloudRootRef.update(sharedCloudPayload()).catch(err=>{
+    const {recommendationsByWeek:_recommendationsByWeek,...payload}=sharedCloudPayload();
+    cloudRootRef.update(payload).catch(err=>{
       console.error('Firebase save failed',err);
       showToast('تعذر مزامنة الصفقات؛ تحقق من الاتصال');
     });
   },120);
+}
+function scheduleRecommendationCloudSave(weekKey,record){
+  if(!cloudReady||!cloudRootRef)return;
+  cloudRootRef.child('recommendationsByWeek').child(weekKey).transaction(current=>{
+    const items=Array.isArray(current)?current:Object.values(current||{});
+    if(items.some(item=>item?.id===record.id))return items;
+    return [...items,record];
+  },error=>{
+    if(error){console.error('Firebase recommendation save failed',error);showToast('حُفظ التوجيه محليًا وتعذرت مزامنته الآن')}
+  });
 }
 
 function mergeStoredRanges(first,second){
@@ -67,18 +79,27 @@ function mergeStoredRanges(first,second){
   return result;
 }
 
+function stableStoreText(value){
+  const sorted={};Object.keys(value||{}).sort().forEach(key=>{sorted[key]=value[key]});return JSON.stringify(sorted);
+}
 function applyCloudStores(data){
+  const incomingManual=data?.manualWeeks||{},incomingExcel=data?.excelRanges||{};
+  const tradesChanged=stableStoreText(readManualWeeks())!==stableStoreText(incomingManual)||stableStoreText(readExcelRanges())!==stableStoreText(incomingExcel);
   applyingCloudState=true;
-  writeManualWeeks(data?.manualWeeks||{},{sync:false});
-  writeExcelRanges(data?.excelRanges||{},{sync:false});
+  writeManualWeeks(incomingManual,{sync:false});
+  writeExcelRanges(incomingExcel,{sync:false});
+  writeRecommendationsByWeek(data?.recommendationsByWeek ?? readRecommendationsByWeek(),{sync:false});
   if(Array.isArray(data?.checkpoints)) localStorage.setItem(REPORT_CHECKPOINTS_KEY,JSON.stringify(data.checkpoints));
   applyingCloudState=false;
-  activeManualWeekKey=selectedWeekKey();
-  manualTrades=readManualWeeks()[activeManualWeekKey]||[];
-  trades=storedTradesForSelectedRange().map(t=>({...t}));
-  importedWorkbookActive=trades.length>0;
-  renderManualTrades();
-  render();
+  if(tradesChanged){
+    activeManualWeekKey=selectedWeekKey();
+    manualTrades=readManualWeeks()[activeManualWeekKey]||[];
+    trades=storedTradesForSelectedRange().map(t=>({...t}));
+    importedWorkbookActive=trades.length>0;
+    renderManualTrades();
+    render();
+  }
+  updateReportRecommendationsIn($('previewContent'));
 }
 
 async function initSharedCloud(){
@@ -90,14 +111,17 @@ async function initSharedCloud(){
     const remote=firstSnapshot.val()||{};
     // أول جهاز فقط ينقل التخزين المحلي القديم إلى السحابة. بعد تهيئة
     // القاعدة تصبح السحابة هي المرجع، حتى لا يعيد جهاز قديم صفقات محذوفة.
-    const initialState=remote.initialized ? remote : {
+    const mergedRecommendations=mergeRecommendationStores(remote.recommendationsByWeek,readRecommendationsByWeek());
+    const initialState=remote.initialized ? {...remote,recommendationsByWeek:mergedRecommendations} : {
       initialized:true,
       manualWeeks:mergeStoredRanges(remote.manualWeeks,readManualWeeks()),
       excelRanges:mergeStoredRanges(remote.excelRanges,readExcelRanges()),
+      recommendationsByWeek:mergedRecommendations,
       updatedAt:Date.now()
     };
     applyCloudStores(initialState);
     if(!remote.initialized) await cloudRootRef.set(initialState);
+    else if(stableStoreText(normalizeRecommendationStore(remote.recommendationsByWeek))!==stableStoreText(initialState.recommendationsByWeek)) await cloudRootRef.update({recommendationsByWeek:initialState.recommendationsByWeek,updatedAt:Date.now()});
     cloudReady=true;
     cloudRootRef.on('value',snapshot=>{
       const data=snapshot.val();
@@ -188,6 +212,38 @@ function readManualWeeks(){
 function readExcelRanges(){
   try{return JSON.parse(localStorage.getItem(EXCEL_RANGES_KEY)||'{}')||{}}
   catch(_e){return {}}
+}
+function normalizeRecommendationStore(value){
+  const normalized={};
+  Object.entries(value||{}).forEach(([key,items])=>{normalized[key]=Array.isArray(items)?items:Object.values(items||{})});
+  return normalized;
+}
+function readRecommendationsByWeek(){
+  try{
+    const stored=normalizeRecommendationStore(JSON.parse(localStorage.getItem(RECOMMENDATIONS_BY_WEEK_KEY)||'{}')||{});
+    if(Object.keys(stored).length)return stored;
+    const legacyRaw=localStorage.getItem(SUCCESSFUL_RECOMMENDATIONS_KEY)||'';
+    if(!legacyRaw)return {};
+    let legacy=[];
+    try{const parsed=JSON.parse(legacyRaw);if(Array.isArray(parsed))legacy=parsed.map(x=>typeof x==='string'?x:(x?.symbol&&x?.option?`${x.symbol} ${x.option}`:''))}
+    catch(_e){legacy=legacyRaw.split(/\r?\n/)}
+    const items=legacy.map(line=>String(line||'').trim().match(/^(.+?)\s+(call|put)$/i)).filter(Boolean).map((m,i)=>({id:`legacy-${i}-${m[1]}`,symbol:m[1].trim().toUpperCase(),option:m[2].toUpperCase(),savedAt:Date.now(),date:$('fromDate')?.value||currentWeekRange().from}));
+    return items.length?{[selectedWeekKey()]:items}:{};
+  }catch(_e){return {}}
+}
+function mergeRecommendationStores(first,second){
+  const merged={};
+  [normalizeRecommendationStore(first),normalizeRecommendationStore(second)].forEach(store=>Object.entries(store).forEach(([key,items])=>{
+    if(!Array.isArray(items))return;
+    const current=merged[key]||[];const seen=new Set(current.map(x=>x.id||`${x.symbol}|${x.option}|${x.savedAt}`));
+    items.forEach(item=>{const id=item.id||`${item.symbol}|${item.option}|${item.savedAt}`;if(!seen.has(id)){current.push(item);seen.add(id)}});
+    merged[key]=current;
+  }));
+  return merged;
+}
+function writeRecommendationsByWeek(data,{sync=true}={}){
+  localStorage.setItem(RECOMMENDATIONS_BY_WEEK_KEY,JSON.stringify(normalizeRecommendationStore(data||{})));
+  if(sync)scheduleCloudSave();
 }
 
 function readManualDrafts(){
@@ -1247,58 +1303,62 @@ function hidePreview(){
 }
 
 function readSuccessfulRecommendations(){
-  try{
-    const raw=localStorage.getItem(SUCCESSFUL_RECOMMENDATIONS_KEY)||'';
-    if(!raw)return [];
-    const parsed=JSON.parse(raw);
-    if(Array.isArray(parsed))return parsed.filter(x=>x&&String(x.symbol||'').trim()&&['CALL','PUT'].includes(String(x.option||'').toUpperCase())).slice(0,20).map(x=>({symbol:String(x.symbol).trim().toUpperCase(),option:String(x.option).toUpperCase()}));
-    // Accept entries saved by the earlier one-line editor.
-    return raw.split(/\r?\n/).map(line=>{const m=line.trim().match(/^(.+?)\s+(call|put)$/i);return m?{symbol:m[1].trim().toUpperCase(),option:m[2].toUpperCase()}:null}).filter(Boolean).slice(0,20);
-  }catch(_e){return []}
+  const selectedFrom=$('fromDate')?.value||currentWeekRange().from;
+  const selectedTo=$('toDate')?.value||currentWeekRange().to;
+  const byWeek=readRecommendationsByWeek();
+  const keys=Object.keys(byWeek).sort();
+  const items=[];
+  keys.forEach(key=>{
+    const range=parseStoredRangeKey(key);
+    if(range&&(range.to<selectedFrom||range.from>selectedTo))return;
+    (Array.isArray(byWeek[key])?byWeek[key]:[]).forEach(item=>{
+      if(!item||!String(item.symbol||'').trim()||!['CALL','PUT'].includes(String(item.option||'').toUpperCase()))return;
+      const itemDate=String(item.date||'');
+      if(/^\d{4}-\d{2}-\d{2}$/.test(itemDate)&&(itemDate<selectedFrom||itemDate>selectedTo))return;
+      items.push({symbol:String(item.symbol).trim().toUpperCase(),option:String(item.option).toUpperCase(),savedAt:Number(item.savedAt)||0});
+    });
+  });
+  return items.sort((a,b)=>a.savedAt-b.savedAt);
 }
 function recommendationMarkup(items){
   if(!items.length)return '';
   return `<section class="successful-recommendations"><h3><span class="recommendation-target" aria-hidden="true">◎</span> التوجيهات الناجحة</h3><ul>${items.map(item=>`<li><span class="recommendation-check" aria-hidden="true">✓</span><bdi dir="ltr">${escapeHtml(item.symbol)} – <span class="recommendation-${item.option.toLowerCase()}">${item.option}</span></bdi></li>`).join('')}</ul></section>`;
 }
-function renderRecommendationInputs(){
-  const host=$('recommendationRows');if(!host)return;
-  const saved=readSuccessfulRecommendations();
-  const count=Math.max(2,saved.length);
-  host.innerHTML=Array.from({length:count},(_,i)=>{
-    const item=saved[i]||{symbol:'',option:''};
-    return `<div class="recommendation-input-row"><label><span>الشركة</span><input class="recommendation-symbol" type="text" dir="ltr" autocomplete="off" placeholder="مثال: QQQ" value="${escapeHtml(item.symbol)}"></label><label><span>الخيار</span><select class="recommendation-option" dir="ltr"><option value="">اختاري</option><option value="CALL" ${item.option==='CALL'?'selected':''}>Call</option><option value="PUT" ${item.option==='PUT'?'selected':''}>Put</option></select></label><button class="remove-recommendation-row" type="button" aria-label="حذف التوجيه">×</button></div>`;
-  }).join('');
+function updateReportRecommendationsIn(root){
+  const card=root?.querySelector?.('.infographic-card');if(!card)return;
+  const old=card.querySelector('.successful-recommendations');
+  const markup=recommendationMarkup(readSuccessfulRecommendations());
+  if(old){if(markup)old.outerHTML=markup;else old.remove()}
+  else if(markup)card.querySelector('.infographic-table-panel')?.insertAdjacentHTML('afterend',markup);
+  if(!$('previewModal')?.hidden)fitLivePreview();
 }
-function collectSuccessfulRecommendations(){
-  return [...document.querySelectorAll('.recommendation-input-row')].map(row=>({symbol:row.querySelector('.recommendation-symbol').value.trim().toUpperCase(),option:row.querySelector('.recommendation-option').value})).filter(item=>item.symbol&&['CALL','PUT'].includes(item.option)).slice(0,20);
-}
-let recommendationRefreshTimer;
-function saveRecommendationInputs(refresh=true){
-  const items=collectSuccessfulRecommendations();
-  localStorage.setItem(SUCCESSFUL_RECOMMENDATIONS_KEY,JSON.stringify(items));
-  if(refresh){clearTimeout(recommendationRefreshTimer);recommendationRefreshTimer=setTimeout(()=>showLivePreview(),260)}
-}
-$('recommendationRows')?.addEventListener('input',()=>saveRecommendationInputs());
-$('recommendationRows')?.addEventListener('change',()=>saveRecommendationInputs());
-$('recommendationRows')?.addEventListener('click',e=>{
-  if(!e.target.closest('.remove-recommendation-row'))return;
-  const row=e.target.closest('.recommendation-input-row');
-  if(document.querySelectorAll('.recommendation-input-row').length>2)row.remove();
-  else {row.querySelector('.recommendation-symbol').value='';row.querySelector('.recommendation-option').value=''}
-  saveRecommendationInputs();
-});
-$('addRecommendationRow')?.addEventListener('click',()=>{
-  if(document.querySelectorAll('.recommendation-input-row').length>=20){showToast('يمكن إضافة 20 توجيهًا كحد أقصى');return}
-  const host=$('recommendationRows');
-  const row=document.createElement('div');row.className='recommendation-input-row';
-  row.innerHTML='<label><span>الشركة</span><input class="recommendation-symbol" type="text" dir="ltr" autocomplete="off" placeholder="مثال: QQQ"></label><label><span>الخيار</span><select class="recommendation-option" dir="ltr"><option value="">اختاري</option><option value="CALL">Call</option><option value="PUT">Put</option></select></label><button class="remove-recommendation-row" type="button" aria-label="حذف التوجيه">×</button>';
-  host.appendChild(row);row.querySelector('.recommendation-symbol').focus();
-});
 function openTopTradesPreview(){
-  renderRecommendationInputs();
+  $('recommendationSymbol').value='';
+  $('recommendationOption').value='';
   showLivePreview();
   showToast('تم فتح التقرير للمعاينة');
 }
+$('saveAndAddRecommendation')?.addEventListener('click',()=>{
+  const symbol=$('recommendationSymbol').value.trim().toUpperCase();
+  const option=$('recommendationOption').value;
+  if(!symbol||!['CALL','PUT'].includes(option)){showToast('اكتبي الشركة واختاري Call أو Put');return}
+  const byWeek=readRecommendationsByWeek();
+  const key=selectedWeekKey();
+  byWeek[key]=Array.isArray(byWeek[key])?byWeek[key]:[];
+  const selectedFrom=$('fromDate').value||currentWeekRange().from,selectedTo=$('toDate').value||currentWeekRange().to;
+  const today=toISO(new Date());
+  const entryDate=today>=selectedFrom&&today<=selectedTo?today:selectedFrom;
+  const record={id:`${Date.now()}-${Math.random().toString(36).slice(2,8)}`,symbol,option,savedAt:Date.now(),date:entryDate};
+  byWeek[key].push(record);
+  writeRecommendationsByWeek(byWeek,{sync:false});
+  scheduleRecommendationCloudSave(key,record);
+  $('recommendationSymbol').value='';
+  $('recommendationOption').value='';
+  updateReportRecommendationsIn($('previewContent'));
+  $('recommendationSymbol').focus();
+  showToast('تم حفظ التوجيه؛ أدخلي التالي');
+});
+
 
 
 async function shareOrDownloadBlob(blob,dataUrl,filename,iosWindow=null){

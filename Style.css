@@ -4520,3 +4520,32 @@ body{
 .recommendation-check{display:inline-grid;place-items:center;width:31px;height:31px;border-radius:50%;background:linear-gradient(#3cae53,#168333);color:#fff;font:900 22px Arial,sans-serif;box-shadow:inset 0 1px 2px #fff8,0 2px 4px #2345}
 .recommendation-call{color:#13742b}.recommendation-put{color:#c82323}
 @media(max-width:650px){.successful-rec-editor{margin:10px 0 5px;padding:11px}.successful-rec-editor h3{font-size:16px}.successful-rec-editor p{font-size:11px}.recommendation-input-row{grid-template-columns:minmax(0,1.1fr) minmax(100px,.8fr) 32px;gap:6px;padding:8px}.recommendation-input-row input,.recommendation-input-row select{font-size:14px;min-height:38px}.successful-recommendations{align-items:stretch;flex-direction:column;gap:10px;margin:14px 0 20px;padding:12px}.successful-recommendations h3{align-self:center;font-size:17px;padding:6px 14px}.successful-recommendations ul{border-radius:16px;padding:8px;gap:7px 10px}.successful-recommendations li{font-size:16px}.recommendation-check{width:24px;height:24px;font-size:17px}}
+
+
+/* Compact one-at-a-time recommendation entry; save updates only the ribbon. */
+.successful-rec-editor{margin:10px 3px 4px;padding:10px 13px;border-radius:15px;box-shadow:0 3px 9px rgba(102,73,25,.08)}
+.successful-rec-editor-head{gap:8px;margin-bottom:8px}
+.successful-rec-editor-icon{width:31px;height:31px;font-size:19px}
+.successful-rec-editor h3{font-size:15px}
+.successful-rec-editor p{font-size:10px}
+.recommendation-input-row{grid-template-columns:minmax(0,1fr) minmax(0,.62fr);gap:8px;padding:0;border:0;background:transparent}
+.recommendation-input-row label{gap:3px;font-size:10px}
+.recommendation-input-row input,.recommendation-input-row select{min-height:34px;padding:5px 8px;font-size:13px;border-radius:8px}
+.recommendation-save-actions{display:flex;justify-content:center;margin-top:8px}
+.recommendation-save-actions button{min-height:32px;padding:5px 13px;border:1px solid #bc954a;border-radius:9px;background:linear-gradient(#fff8e6,#e7ce91);color:#574018;font:800 11px Cairo,Arial,sans-serif;box-shadow:0 2px 4px rgba(91,64,18,.12);cursor:pointer}
+.recommendation-save-actions button:active{transform:translateY(1px);box-shadow:none}
+
+/* Blend the shared logo artwork into cream and white site surfaces. */
+.hero-logo,.manual-logo,.info-logo,.subscribers-logo,.logo{mix-blend-mode:multiply!important;background:transparent!important;border:0!important;box-shadow:none!important}
+.hero-logo{object-fit:contain!important;filter:drop-shadow(0 8px 10px rgba(106,75,27,.10))!important}
+.manual-logo{object-fit:contain!important;filter:drop-shadow(0 5px 8px rgba(106,75,27,.08))!important}
+.refined-light .info-header.logo-only,.capture-mode .info-header.logo-only{min-height:320px!important;height:320px!important;overflow:hidden!important}
+.refined-light .info-header.logo-only .info-logo-wrap,.capture-mode .info-header.logo-only .info-logo-wrap{height:320px!important;min-height:0!important;overflow:hidden!important}
+.refined-light .info-header.logo-only .info-logo.bigger,.capture-mode .info-header.logo-only .info-logo.bigger{display:block!important;width:100%!important;max-width:980px!important;height:320px!important;max-height:320px!important;object-fit:contain!important;object-position:center!important;transform:none!important;filter:drop-shadow(0 6px 9px rgba(101,69,22,.08))!important;mix-blend-mode:multiply!important}
+@media(max-width:650px){
+ .recommendation-input-row{grid-template-columns:minmax(0,1fr) minmax(0,.72fr);gap:7px}
+ .recommendation-input-row input,.recommendation-input-row select{min-height:36px;font-size:13px}
+ .recommendation-save-actions button{min-height:31px;font-size:11px}
+ .refined-light .info-header.logo-only,.capture-mode .info-header.logo-only,.refined-light .info-header.logo-only .info-logo-wrap,.capture-mode .info-header.logo-only .info-logo-wrap{height:255px!important;min-height:255px!important}
+ .refined-light .info-header.logo-only .info-logo.bigger,.capture-mode .info-header.logo-only .info-logo.bigger{height:250px!important;max-height:250px!important}
+}
