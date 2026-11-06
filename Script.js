@@ -970,7 +970,10 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
     String(a.symbol).localeCompare(String(b.symbol))
   );
   const periodText=`${$('fromDate').value || '—'}  →  ${$('toDate').value || '—'}`;
-  const recommendationsBlock=recommendationMarkup(readSuccessfulRecommendations(),captureId==='liveShareCapture');
+  const recommendationItems=readSuccessfulRecommendations();
+  // ترتيب التوجيهات في ملف الصورة فقط: Call أولًا ثم Put مع حفظ ترتيب كل مجموعة.
+  if(captureId==='shareCapture') recommendationItems.sort((a,b)=>(a.option==='CALL'?0:1)-(b.option==='CALL'?0:1));
+  const recommendationsBlock=recommendationMarkup(recommendationItems,captureId==='liveShareCapture');
   const winPct = s.counted.length ? (s.wins.length / s.counted.length * 100) : 0;
   const stoppedCount = s.stopped.length;
   const flatCount = s.counted.filter(t=>tradeOutcome(t)==='flat').length;

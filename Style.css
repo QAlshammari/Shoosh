@@ -4667,3 +4667,43 @@ body{
  .recommendation-check{width:25px!important;height:25px!important;font-size:17px!important}
  .recommendation-card-actions{margin-left:auto!important}
 }
+
+
+/* REPORT READABILITY: lighter surfaces, enlarged editable guidance cards, unified headings. */
+.refined-light.infographic-card,.capture-mode.refined-light.infographic-card{background:#fff!important;background-image:none!important}
+.refined-light .infographic-table-panel,.capture-mode .infographic-table-panel{background:#fff!important}
+.refined-light .info-table.roomy tbody tr:nth-child(even),.capture-mode .info-table.roomy tbody tr:nth-child(even){background:#fffefa!important}
+.refined-light .info-table.roomy tbody td,.capture-mode .info-table.roomy tbody td{background-color:transparent!important}
+.successful-recommendations{background:#fff!important}
+.successful-rec-heading{box-sizing:border-box!important;display:flex!important;align-items:center!important;gap:12px!important;min-height:74px!important;margin:12px 12px 0!important;padding:8px 15px!important;border:1px solid #d8bd82!important;border-bottom:7px solid #ae7b2b!important;border-radius:19px!important;color:#4b351b!important;background:radial-gradient(ellipse at center,#fff8e8 0%,#fffdf7 58%,#fff 100%)!important;box-shadow:0 8px 0 rgba(153,103,30,.22),0 15px 22px rgba(103,70,25,.13),inset 0 2px 0 #fff,inset 0 -8px 15px rgba(212,171,91,.07)!important}
+.successful-rec-heading-copy{margin-left:auto!important;text-align:right!important}
+.successful-rec-heading-copy small{display:none!important}
+.successful-rec-heading h3{margin:0!important;padding:0!important;border:0!important;background:none!important;color:#4b351b!important;font:900 40px/1.15 Cairo,Arial,Tahoma,sans-serif!important;white-space:nowrap!important}
+.successful-rec-emblem{width:38px!important;height:38px!important;border:1px solid #d8bd82!important;border-radius:12px!important;background:linear-gradient(145deg,#fffdf4,#efd18e)!important;color:#8a621f!important;font:900 22px Arial,sans-serif!important;box-shadow:0 4px 0 #b47d28,inset 0 1px 0 #fff!important}
+.successful-rec-count{display:none!important}
+.successful-recommendations ul{background:#fff!important}
+/* The live entry preview has room for three large, readable cards per row. */
+#previewLiveScale .successful-recommendations ul{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important;padding:16px!important}
+#previewLiveScale .successful-rec-card{min-height:100px!important;flex-wrap:wrap!important;justify-content:center!important;gap:8px!important;padding:12px!important;background:#fff!important}
+#previewLiveScale .recommendation-symbol{flex:0 1 auto!important;font:900 34px/1.1 Cairo,Arial,Tahoma,sans-serif!important;color:#17130e!important}
+#previewLiveScale .recommendation-separator{font-size:23px!important}
+#previewLiveScale .recommendation-option-badge{font:900 29px/1 Cairo,Arial,Tahoma,sans-serif!important}
+#previewLiveScale .recommendation-check{width:34px!important;height:34px!important;font-size:23px!important}
+#previewLiveScale .recommendation-card-actions{flex:0 0 100%!important;justify-content:center!important;margin:2px 0 0!important}
+#previewLiveScale .recommendation-card-actions button{min-height:31px!important;padding:4px 10px!important;font-size:13px!important}
+#previewLiveScale .successful-rec-editor{background:#fff!important}
+/* Saved report image: up to six cards per row, with ticker and option clearly visible. */
+#shareCapture .successful-recommendations ul{grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:10px 8px!important;padding:15px!important}
+#shareCapture .successful-rec-card{min-height:82px!important;gap:7px!important;padding:9px 6px!important;background:#fff!important}
+#shareCapture .recommendation-symbol{font:900 27px/1.1 Cairo,Arial,Tahoma,sans-serif!important;color:#17130e!important}
+#shareCapture .recommendation-option-badge{font:900 27px/1 Cairo,Arial,Tahoma,sans-serif!important}
+#shareCapture .recommendation-check{width:29px!important;height:29px!important}
+@media(max-width:720px){
+ .successful-rec-heading{min-height:58px!important;margin:8px 8px 0!important;padding:7px 11px!important}
+ .successful-rec-heading h3{font-size:27px!important}
+ .successful-rec-emblem{width:30px!important;height:30px!important;font-size:18px!important}
+ #previewLiveScale .successful-recommendations ul{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;padding:12px!important}
+ #previewLiveScale .recommendation-symbol{font-size:30px!important}
+ #previewLiveScale .recommendation-option-badge{font-size:25px!important}
+ #shareCapture .successful-recommendations ul{grid-template-columns:repeat(6,minmax(0,1fr))!important}
+}
