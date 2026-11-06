@@ -126,7 +126,11 @@ async function initSharedCloud(){
     const remote=firstSnapshot.val()||{};
     // أول جهاز فقط ينقل التخزين المحلي القديم إلى السحابة. بعد تهيئة
     // القاعدة تصبح السحابة هي المرجع، حتى لا يعيد جهاز قديم صفقات محذوفة.
-    const mergedRecommendations=mergeRecommendationStores(remote.recommendationsByWeek,readRecommendationsByWeek());
+    // Once initialized, the cloud is authoritative. Merge local legacy data only during first setup,
+    // so stale copies on another device cannot restore recommendations that were deleted.
+    const mergedRecommendations=remote.initialized
+      ? normalizeRecommendationStore(remote.recommendationsByWeek)
+      : mergeRecommendationStores(remote.recommendationsByWeek,readRecommendationsByWeek());
     const initialState=remote.initialized ? {...remote,recommendationsByWeek:mergedRecommendations} : {
       initialized:true,
       manualWeeks:mergeStoredRanges(remote.manualWeeks,readManualWeeks()),
@@ -235,8 +239,9 @@ function normalizeRecommendationStore(value){
 }
 function readRecommendationsByWeek(){
   try{
-    const stored=normalizeRecommendationStore(JSON.parse(localStorage.getItem(RECOMMENDATIONS_BY_WEEK_KEY)||'{}')||{});
-    if(Object.keys(stored).length)return stored;
+    const currentRaw=localStorage.getItem(RECOMMENDATIONS_BY_WEEK_KEY);
+    // An explicitly saved empty store means the user deleted all entries; do not revive the legacy cache.
+    if(currentRaw!==null)return normalizeRecommendationStore(JSON.parse(currentRaw)||{});
     const legacyRaw=localStorage.getItem(SUCCESSFUL_RECOMMENDATIONS_KEY)||'';
     if(!legacyRaw)return {};
     let legacy=[];
