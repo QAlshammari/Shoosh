@@ -4707,3 +4707,8 @@ body{
  #previewLiveScale .recommendation-option-badge{font-size:25px!important}
  #shareCapture .successful-recommendations ul{grid-template-columns:repeat(6,minmax(0,1fr))!important}
 }
+
+
+/* Clearer outlines for successful guidance in exported report images. */
+#shareCapture .successful-recommendations{border:2px solid #b58a3d!important;box-shadow:0 5px 0 rgba(153,108,39,.42),0 10px 20px rgba(75,54,24,.14),inset 0 1px 0 #fff!important}
+#shareCapture .successful-rec-card{border:1.5px solid #c9aa69!important;box-shadow:0 2px 0 rgba(145,105,43,.24),0 4px 9px rgba(72,52,25,.09)!important}

@@ -973,7 +973,8 @@ function buildShareTemplate(maxRows=10, captureId="shareCapture"){
   const recommendationItems=readSuccessfulRecommendations();
   // ترتيب التوجيهات في ملف الصورة فقط: Call أولًا ثم Put مع حفظ ترتيب كل مجموعة.
   if(captureId==='shareCapture') recommendationItems.sort((a,b)=>(a.option==='CALL'?0:1)-(b.option==='CALL'?0:1));
-  const recommendationsBlock=recommendationMarkup(recommendationItems,captureId==='liveShareCapture');
+  // Keep the editor visible in the live preview, but omit this optional section from exported reports when it has no entries.
+  const recommendationsBlock=(!recommendationItems.length&&captureId!=='liveShareCapture')?'':recommendationMarkup(recommendationItems,captureId==='liveShareCapture');
   const winPct = s.counted.length ? (s.wins.length / s.counted.length * 100) : 0;
   const stoppedCount = s.stopped.length;
   const flatCount = s.counted.filter(t=>tradeOutcome(t)==='flat').length;
@@ -1864,7 +1865,8 @@ if(initialStoredRangeTrades.length){
 updateFooterClock();
 setInterval(updateFooterClock,60000);
 render();
-try{if(localStorage.getItem(MANUAL_PAGE_OPEN_KEY)==='1') openManualEntry()}catch(_e){}
+// Always start on the main dashboard; clear the previous tab's saved manual-entry state.
+try{localStorage.removeItem(MANUAL_PAGE_OPEN_KEY)}catch(_e){}
 initSharedCloud();
 
 // Q OPTIONS FINAL READY — live preview + iOS save
